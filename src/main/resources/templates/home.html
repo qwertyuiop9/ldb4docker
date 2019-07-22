@@ -2,14 +2,22 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
+    <script type="text/javascript" src="webjars/jquery/3.4.1/jquery.min.js"></script>
+    <script type="text/javascript" src="webjars/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="webjars/bootstrap/4.3.1/css/bootstrap.min.css">
+
     <title>Home</title>
 </head>
 <body>
-<h1>ldb4docker</h1>
+<div class="container">
 
-<h2>Configurazione attuale</h2>
+    <hgroup th:align="center">
+        <h1>ldb4docker</h1>
+        <h2>Gestione e verifica di proprietà di bigrafi</h2>
+    </hgroup>
+    <hr>
 
-<form action="#" th:action="@{/setupPath}" th:object="${graphConfig}" method="post" >
+    <form action="#" th:action="@{/setupPath}" th:object="${graphConfig}" method="post" >
     <fieldset>
         <p>
             Percorso file di configurazione <input type="text" th:field="*{bigraphFilePath}" />
@@ -27,7 +35,80 @@
         </p>
     </fieldset>
 
+    <form>
+        <div class="form-group row">
+            <label for="inputMyBigraphFilePath" class="col-sm-3 col-form-label">Percorso file di configurazione</label>
+            <div class="col-sm-7">
+                <input type="text" class="form-control" id="inputMyBigraphFilePath" placeholder="Percorso file bigrafo">
+            </div>
+            <div class="col-sm-2">
+                <button type="submit" class="btn btn-primary">Carica file</button>
+            </div>
+        </div>
+        <div class="form-group row">
+            <div class="col-sm-2">1 - </div>
+            <div class="col-sm-8">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="myGridCheck1">
+                    <label class="form-check-label" for="myGridCheck1">
+                        Usa il file '.yml' fornito
+                    </label>
+                </div>
+            </div>
+        </div>
+    </form>
+
 </form>
+
+
+    <form>
+        <div class="form-group row">
+            <label for="inputEmail3" class="col-sm-2 col-form-label">Email</label>
+            <div class="col-sm-10">
+                <input type="email" class="form-control" id="inputEmail3" placeholder="Email">
+            </div>
+        </div>
+        <div class="form-group row">
+            <label for="inputPassword3" class="col-sm-2 col-form-label">Password</label>
+            <div class="col-sm-10">
+                <input type="password" class="form-control" id="inputPassword3" placeholder="Password">
+            </div>
+        </div>
+        <fieldset class="form-group">
+            <div class="row">
+                <legend class="col-form-label col-sm-2 pt-0">Radios</legend>
+                <div class="col-sm-10">
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gridRadios" id="gridRadios1" value="option1" checked>
+                        <label class="form-check-label" for="gridRadios1">
+                            First radio
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="gridRadios" id="gridRadios2" value="option2">
+                        <label class="form-check-label" for="gridRadios2">
+                            Second radio
+                        </label>
+                    </div>
+                    <div class="form-check disabled">
+                        <input class="form-check-input" type="radio" name="gridRadios" id="gridRadios3" value="option3" disabled>
+                        <label class="form-check-label" for="gridRadios3">
+                            Third disabled radio
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </fieldset>
+
+
+        <div class="form-group row">
+            <div class="col-sm-10">
+                <button type="submit" class="btn btn-primary">Sign in</button>
+            </div>
+        </div>
+    </form>
+
+</div>
 
 </body>
 </html>
