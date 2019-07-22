@@ -1,10 +1,33 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <title>Titolo della Home</title>
+    <title>Home</title>
 </head>
 <body>
+<h1>ldb4docker</h1>
+
+<h2>Configurazione attuale</h2>
+
+<form action="#" th:action="@{/setupPath}" th:object="${graphConfig}" method="post" >
+    <fieldset>
+        <p>
+            Percorso file di configurazione <input type="text" th:field="*{bigraphFilePath}" />
+            <input type="submit" value="Aggiorna"/>
+        </p>
+        <h3>Opzioni</h3>
+        <p>
+            <input type="checkbox" name="cbUseYmlPAth" th:checked="${cbUseYmlPath}" >Usa il file "yml" fornito <br>
+        </p>
+        <p>
+            <input type="reset" value="Reset" />
+        </p>
+        <p>
+            Input linea di comando <input type="text" th:field="*{commandLineArgs}"/>
+        </p>
+    </fieldset>
+
+</form>
 
 </body>
 </html>
