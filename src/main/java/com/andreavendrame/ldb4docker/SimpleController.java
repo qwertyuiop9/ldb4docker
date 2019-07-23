@@ -221,6 +221,15 @@ public class SimpleController {
     @RequestMapping(value = {"/", "", "home"})
     public ModelAndView home() { return new ModelAndView("home"); }
 
+    @RequestMapping(value = "configurations")
+    public ModelAndView configurations() { return new ModelAndView("configurations"); }
+
+    @RequestMapping(value = "about")
+    public ModelAndView about() { return new ModelAndView("about"); }
+
+    @ModelAttribute("pageState")
+    public HomePageState getPageState() { return this.state; }
+
     // METODI AUSILIARI ALLA CREAZIONE DEL BIGRAFO -->
 
     /**
@@ -513,24 +522,6 @@ public class SimpleController {
             }
         }
 
-        // Creo l'opzione che imposta il percorso del file yml da caricare (e la setto come obbligatoria)
-        // --> docker-compose.yml location
-        Option input = createOption("i", "input", true, "input file path");
-        input.setRequired(true);
-
-        // Abilito la verifica dei link
-        Option checkLinks = createOption("c", "check-links",false,"set to check links connectivity");
-
-        // Abilito la verifica delle gerarchie di rete
-        Option networkHierarchies = createOption("s", "security-level", true, "network hierarchy file path");
-
-        // Aggiungo le opzioni da utilizzare
-        final Option[] myOptions = {input, checkLinks, networkHierarchies};
-        addOption(options, myOptions);
-
         return "home";
     }
-
-    @ModelAttribute("pageState")
-    public HomePageState getPageState() { return this.state; }
 }

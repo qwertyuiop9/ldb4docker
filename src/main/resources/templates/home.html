@@ -8,41 +8,67 @@
 
     <title>Home</title>
 </head>
-<body>
+<body class="bg-light">
 <div class="container">
 
-    <hgroup th:align="center">
+    <hgroup class="p-3" th:align="center">
         <h1>ldb4docker</h1>
         <h2>Gestione e verifica di proprietà di bigrafi</h2>
     </hgroup>
+
+    <nav class="navbar navbar-expand bg-white p-2">
+        <ul class="navbar-nav mr-auto mt-2 mt-lg-0">
+            <li class="nav-item pr-3 pl-1">
+                <a class="nav-link" th:href="@{/home}">
+                    Home
+                </a>
+            </li>
+            <li class="nav-item pr-3">
+                <a class="nav-link" th:href="@{/configurations}">
+                    Configurazioni
+                </a>
+            </li>
+            <li class="nav-item pr-3">
+                <a class="nav-link" th:href="@{/about}">
+                    Info
+                </a>
+            </li>
+        </ul>
+    </nav>
     <hr>
 
     <form action="#" method="post" th:action="@{/setupPath}" th:object="${pageState}">
         <div class="form-group row">
             <label for="inputMyBigraphFilePath" class="col-sm-3 col-form-label">Percorso file di configurazione</label>
             <div class="col-sm-7">
-                <input class="form-control" id="inputMyBigraphFilePath" placeholder="Percorso file bigrafo" th:field="*{bigraphFilePathYml}" type="text">
+                <input class="form-control" id="inputMyBigraphFilePath" placeholder="Percorso file bigrafo"
+                       th:field="*{bigraphFilePathYml}" type="text">
             </div>
             <div class="col-sm-2">
                 <button type="submit" class="btn btn-primary">Carica file</button>
             </div>
         </div>
         <div class="form-group row">
-            <label class="col-sm-3 col-form-label" for="inputSecurityLevelFilePath">Percorso file livelli di sicurezza</label>
+            <label class="col-sm-3 col-form-label" for="inputSecurityLevelFilePath">Percorso file livelli di
+                sicurezza</label>
             <div class="col-sm-9">
-                <input class="form-control" id="inputSecurityLevelFilePath" placeholder="Percorso file livelli di sicurezza" th:field="*{securityLevelsFilePath}" type="text">
+                <input class="form-control" id="inputSecurityLevelFilePath"
+                       placeholder="Percorso file livelli di sicurezza" th:field="*{securityLevelsFilePath}"
+                       type="text">
             </div>
         </div>
         <div class="card">
             <div class="card-body">
                 <h5 class="card-title">Opzioni avanzate</h5>
-                <p class="card-text">Alcune azioni disponibili per un test iniziale sul bigrafo da eseguire al momento del caricamento.</p>
+                <p class="card-text">Alcune azioni disponibili per un test iniziale sul bigrafo da eseguire al momento
+                    del caricamento.</p>
 
                 <div class="form-group row">
-                    <div class="col-sm-1">1 - </div>
+                    <div class="col-sm-1">1 -</div>
                     <div class="col-sm-11">
                         <div class="form-check">
-                            <input class="form-check-input" id="myCheckYml" th:field="*{cbUseProvidedYmlFilePath}" type="checkbox">
+                            <input class="form-check-input" id="myCheckYml" th:field="*{cbUseProvidedYmlFilePath}"
+                                   type="checkbox">
                             <label class="form-check-label" for="myCheckYml">
                                 Usa il file '.yml' fornito
                             </label>
@@ -50,10 +76,11 @@
                     </div>
                 </div>
                 <div class="form-group row">
-                    <div class="col-sm-1">2 - </div>
+                    <div class="col-sm-1">2 -</div>
                     <div class="col-sm-11">
                         <div class="form-check">
-                            <input class="form-check-input" id="myCheckLinks" th:field="*{cbDoInitialLinkCheck}" type="checkbox">
+                            <input class="form-check-input" id="myCheckLinks" th:field="*{cbDoInitialLinkCheck}"
+                                   type="checkbox">
                             <label class="form-check-label" for="myCheckLinks">
                                 Esegui il check sui link
                             </label>
@@ -61,10 +88,11 @@
                     </div>
                 </div>
                 <div class="form-group row">
-                    <div class="col-sm-1">3 - </div>
+                    <div class="col-sm-1">3 -</div>
                     <div class="col-sm-11">
                         <div class="form-check">
-                            <input class="form-check-input" id="myCheckSecurityLevels" th:field="*{cbDoInitialSecurityLevelsCheck}" type="checkbox">
+                            <input class="form-check-input" id="myCheckSecurityLevels"
+                                   th:field="*{cbDoInitialSecurityLevelsCheck}" type="checkbox">
                             <label class="form-check-label" for="myCheckSecurityLevels">
                                 Esegui il check sui livelli di sicurezza
                             </label>
