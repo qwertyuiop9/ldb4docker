@@ -27,21 +27,72 @@ import java.util.*;
 public class SimpleController {
 
     // Variabili d'ambiente
-    private UserConfiguration configuration = new UserConfiguration(Resources.TEST_CONFIGURATION_PATH);
     private Options options = new Options();
-    private boolean cbUseYmlPath = false;
-
+    private HomePageState state = new HomePageState();
 
     @Autowired
     UserConfigurationService configurationService;
 
-    @RequestMapping(value = {"/", "", "home"})
-    public ModelAndView home() {
+    private static void checkLinks(DirectedBigraph bigraph) throws Exception {
+        Map<String, List<String>> links = new HashMap<>();
+        Map<String, List<String>> nets = new HashMap<>();
+        Map<String, String> names = new HashMap<>();
 
-        return new ModelAndView("home");
-
+        for (Node n : bigraph.getNodes()) {
+            // search for links and names of services
+            if (n.getControl().getName().equals("container")) {
+                for (Point p : n.getInPort(0).getPoints()) {
+                    if (p.toString().startsWith("l_")) { // found a links
+                        if (!links.containsKey(n.getName())) {
+                            List<String> temp = new ArrayList<>();
+                            temp.add(p.toString());
+                            links.put(n.getName(), temp);
+                        } else {
+                            links.get(n.getName()).add(p.toString());
+                        }
+                    } else { // it must be the name
+                        names.put(p.toString(), n.getName());
+                    }
+                }
+                // find networks for every node
+                for (Child child : n.getChildren()) {
+                    if (child.isNode()) {
+                        Node n1 = (Node) child;
+                        if (n1.getControl().getName().equals("network")) {
+                            String ro_net = n1.getOutPort(0).getHandle().toString();
+                            if (!nets.containsKey(n.getName())) {
+                                List<String> temp = new ArrayList<>();
+                                temp.add(ro_net);
+                                nets.put(n.getName(), temp);
+                            } else {
+                                nets.get(n.getName()).add(ro_net);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (String node : links.keySet()) {
+            for (String link : links.get(node)) {
+                String[] ss2 = link.split("_");
+                // links is in the form l_dest_source, so splitting we can retrieve containers involved
+                String src = ss2[2];
+                List<String> src_nets = nets.get(names.get(src));
+                List<String> dst_nets = nets.get(node);
+                boolean net_in_common = false;
+                // intersect networks
+                for (String n : dst_nets) {
+                    if (src_nets.contains(n)) {
+                        net_in_common = true;
+                        break;
+                    }
+                }
+                if (!net_in_common) {
+                    System.err.println("[WARNING] You cannot link two containers that are not in the same network.");
+                }
+            }
+        }
     }
-
 
     @RequestMapping(value = "/exampleList", method = RequestMethod.GET)
     public ModelAndView configuration() {
@@ -55,16 +106,6 @@ public class SimpleController {
 
     }
 
-
-
-    @RequestMapping(value = "test_form")
-    public ModelAndView login() {
-
-        ModelAndView mav = new ModelAndView("test_form");
-        return mav;
-
-    }
-
     @RequestMapping(value = "doLogin", method = RequestMethod.POST)
     public String doLogin(@ModelAttribute Login login) {
 
@@ -74,90 +115,101 @@ public class SimpleController {
 
     }
 
+    private static void checkSecurityLevel(DirectedBigraph bigraph, String securityLevelsFilePath) throws Exception {
+        // use a Scanner to read the lines from the file
+        File file = new File(securityLevelsFilePath);
+        Scanner sc = new Scanner(file);
 
-    @RequestMapping(value = "setupPath", method = RequestMethod.POST)
-    public String setupConfigurationPath(@ModelAttribute UserConfiguration pageConfig) {
+        // create a graph to store the network hierarchy
+        // acyclic because loop means error
+        DirectedAcyclicGraph<String, DefaultEdge> g = new DirectedAcyclicGraph<>(DefaultEdge.class);
 
-        // Aggiorno la variabile di classe
-        this.configuration.setBigraphFilePath(pageConfig.getBigraphFilePath());
+        while (sc.hasNextLine()) {
+            String line = sc.nextLine();
 
-        System.out.println("Percorso del file di configurazione da caricare: " + configuration.getBigraphFilePath());
+            Scanner lineScanner = new Scanner(line);
+            lineScanner.useDelimiter(">");
 
-        // Creo l'opzione che imposta il percorso del file yml da caricare (e la setto come obbligatoria)
-        // --> docker-compose.yml location
-        Option input = createOption("i", "input", true, "input file path");
-        input.setRequired(true);
+            if (lineScanner.hasNext()) { // a line in "n1 > n2" form
+                String parent = lineScanner.next().trim(); // first member (whitespaces removed)
+                String son = lineScanner.next().trim(); // second member (whitespaces removed)
 
-        // Abilito la verifica dei link
-        Option checkLinks = createOption("c", "check-links",false,"set to check links connectivity");
+                // add a vertex for each network specified
+                g.addVertex(parent);
+                g.addVertex(son);
 
-        // Abilito la verifica delle gerarchie di rete
-        Option networkHierarchies = createOption("s", "security-level", true, "network hierarchy file path");
-
-        // Aggiungo le opzioni da utilizzare
-        final Option[] myOptions = {input, checkLinks, networkHierarchies};
-        addOption(options, myOptions);
-
-
-        CommandLineParser parser = new DefaultParser();
-        HelpFormatter formatter = new HelpFormatter();
-        CommandLine cmd = null;
-
-        // Aggiorno le variabili con i dati ottenuti dalla pagina
-        configuration.setCommandLineArgs(pageConfig.getCommandLineArgs());
-        myPrint(configuration.getCommandLineArgs().split(" "));
-        try {
-            cmd = parser.parse(options, this.configuration.getCommandLineArgs().split(" "));
-        } catch (ParseException e) {
-            System.out.println(e.getMessage());
-            formatter.printHelp("docker2ldb", options);
-
-        }
-
-        // get input file path
-        if (cmd == null) {
-            System.out.println("Errore -- cmd null");
-        } else {
-            String inputFilePath = cmd.getOptionValue("input");
-
-            try {
-                DirectedBigraph b = docker2ldb(inputFilePath);
-                System.out.println("Composed bigraph: \n" + b);
-                if (cmd.hasOption("c")) {
-                    checkLinks(b);
-                }
-                if (cmd.hasOption("s")) {
-                    checkSecurityLevel(b, cmd.getOptionValue("security-level"));
-                }
-            } catch (FileNotFoundException e) {
-                System.err.println("File not found!");
-
-                System.exit(1);
-            } catch (IllegalArgumentException e) {
-                System.err.println("Network security config file contains cyclic reference!");
-
-                System.exit(1);
-            } catch (Exception e) {
-                System.err.println(e.getMessage());
-
-                System.exit(1);
+                // link the two networks
+                g.addEdge(parent, son);
+            } else {
+                throw new Exception("Empty or invalid line. Unable to process.");
             }
+        }
+        sc.close();
 
 
+        // support graph
+        DirectedGraph<String, DefaultEdge> netSecurityGraph = (DirectedGraph<String, DefaultEdge>) new DefaultDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
+
+        // iterate the nodes of container type
+        for (Node n : bigraph.getNodes()) {
+            if (n.getControl().getName().equals("container")) {
+                String name = n.getName();
+                netSecurityGraph.addVertex(name); // add a node for the container to the graph
+
+                for (Child child : n.getChildren()) { // find networks and volumes connected to the container
+                    if (child.isNode()) {
+                        Node n1 = (Node) child;
+                        if (n1.getControl().getName().equals("network")) {
+                            if (n1.getOutPort(0).getHandle() != null) { // there is a network the container reads from
+                                String net = n1.getOutPort(0).getHandle().toString(); // the name of the network
+                                netSecurityGraph.addVertex(net);
+                                netSecurityGraph.addEdge(net, name);
+                            }
+
+                            if (n1.getOutPort(1).getHandle() != null) { // there is a network the container writes to
+                                String net = n1.getOutPort(1).getHandle().toString(); // the name of the network
+                                netSecurityGraph.addVertex(net);
+                                netSecurityGraph.addEdge(name, net);
+                            }
+                        } else if (n1.getControl().getName().equals("volume")) {
+                            if (n1.getOutPort(0).getHandle() != null) { // there is a volume the container reads from
+                                String vol = n1.getOutPort(0).getHandle().toString(); // the name of the volume
+                                netSecurityGraph.addVertex(vol);
+                                netSecurityGraph.addEdge(vol, name); // read from network
+                            }
+
+                            if (n1.getOutPort(1).getHandle() != null) { // there is a volume the container writes to
+                                String vol = n1.getOutPort(1).getHandle().toString(); // the name of the volume
+                                netSecurityGraph.addVertex(vol);
+                                netSecurityGraph.addEdge(name, vol); // write to network
+                            }
+                        }
+                    }
+                }
+            }
         }
 
-        return "home";
+        // search network violations
+        TransitiveClosure.INSTANCE.closeSimpleDirectedGraph(g); // compute transitive closure of g
+        // create a connectivity inspector for the graph
+        ConnectivityInspector<String, DefaultEdge> ci = new ConnectivityInspector<>(netSecurityGraph);
+
+        for (DefaultEdge e : g.edgeSet()) {
+            String hi = g.getEdgeSource(e);
+            String low = g.getEdgeTarget(e);
+
+            if (!netSecurityGraph.containsVertex(hi)) {
+                throw new Exception("[ERROR] You specified a not existing network (" + hi + ")!");
+            } else if (!netSecurityGraph.containsVertex(low)) {
+                throw new Exception("[ERROR] You specified a not existing network (" + low + ")!");
+            } else if (ci.pathExists(hi, low)) {
+                System.err.println("[WARNING] Network \"" + low + "\" can read network \"" + hi + "\"!");
+            }
+        }
     }
 
 
     // MODEL DATA -->
-
-    @ModelAttribute("graphConfig")
-    public UserConfiguration getUserConfiguration() {
-
-        return configuration;
-
-    }
 
     @ModelAttribute("allConfigs")
     public List<UserConfiguration> getConfigs() {
@@ -166,18 +218,8 @@ public class SimpleController {
 
     }
 
-    @ModelAttribute("cbUseYmlPath")
-    public boolean getUseYmlPath() { return this.cbUseYmlPath; }
-
-    @ModelAttribute("args")
-    public String[] getArgs() { return this.configuration.getCommandLineArgs().split(" "); }
-
-    @ModelAttribute
-    public void addDefaultLoginData(Model model) {
-
-        model.addAttribute("loginData", Login.getLoginDefaultInstance());
-
-    }
+    @RequestMapping(value = {"/", "", "home"})
+    public ModelAndView home() { return new ModelAndView("home"); }
 
     // METODI AUSILIARI ALLA CREAZIONE DEL BIGRAFO -->
 
@@ -210,15 +252,6 @@ public class SimpleController {
         }
     }
 
-    // METODI DI DEBUGGING -->
-
-    private void myPrint(String[] strings) {
-
-        for (String s : strings) {
-            System.out.println("Stringa " + s);
-        }
-
-    }
 
     // METODI COPIATI DAL VECCHIO PROGETTO
 
@@ -419,157 +452,85 @@ public class SimpleController {
         return DirectedBigraph.compose(outs, graphs);
     }
 
-    private static void checkLinks(DirectedBigraph b) throws Exception {
-        Map<String, List<String>> links = new HashMap<>();
-        Map<String, List<String>> nets = new HashMap<>();
-        Map<String, String> names = new HashMap<>();
+    @RequestMapping(value = "setupPath", method = RequestMethod.POST)
+    public String setupConfigurationPath(@ModelAttribute HomePageState myHomePageState) {
 
-        for (Node n : b.getNodes()) {
-            // search for links and names of services
-            if (n.getControl().getName().equals("container")) {
-                for (Point p : n.getInPort(0).getPoints()) {
-                    if (p.toString().startsWith("l_")) { // found a links
-                        if (!links.containsKey(n.getName())) {
-                            List<String> temp = new ArrayList<>();
-                            temp.add(p.toString());
-                            links.put(n.getName(), temp);
-                        } else {
-                            links.get(n.getName()).add(p.toString());
-                        }
-                    } else { // it must be the name
-                        names.put(p.toString(), n.getName());
-                    }
-                }
-                // find networks for every node
-                for (Child child : n.getChildren()) {
-                    if (child.isNode()) {
-                        Node n1 = (Node) child;
-                        if (n1.getControl().getName().equals("network")) {
-                            String ro_net = n1.getOutPort(0).getHandle().toString();
-                            if (!nets.containsKey(n.getName())) {
-                                List<String> temp = new ArrayList<>();
-                                temp.add(ro_net);
-                                nets.put(n.getName(), temp);
-                            } else {
-                                nets.get(n.getName()).add(ro_net);
-                            }
-                        }
-                    }
-                }
+        // Aggiorno la variabile di classe
+        String acquiredYmlFilePath = myHomePageState.getBigraphFilePathYml();
+        System.out.println("DEBUG - Percorso dinamico ottenuto: " + acquiredYmlFilePath);
+        this.state.setBigraphFilePathYml(acquiredYmlFilePath);
+
+        // Carico il bigrafo
+        DirectedBigraph myBigraph = null;
+        if (!myHomePageState.getBigraphFilePathYml().equals("")) {
+            try {
+                myBigraph = docker2ldb(myHomePageState.getBigraphFilePathYml());
+            } catch (Exception e) {
+                System.out.println("DEBUG - Errore nel caricamento del bigrafo");
+                e.printStackTrace();
             }
+        } else {
+            System.out.println("DEBUG - Ottenuto un percorso vuoto (stringa vuota)");
         }
-        for (String node : links.keySet()) {
-            for (String link : links.get(node)) {
-                String[] ss2 = link.split("_");
-                // links is in the form l_dest_source, so splitting we can retrieve containers involved
-                String src = ss2[2];
-                List<String> src_nets = nets.get(names.get(src));
-                List<String> dst_nets = nets.get(node);
-                boolean net_in_common = false;
-                // intersect networks
-                for (String n : dst_nets) {
-                    if (src_nets.contains(n)) {
-                        net_in_common = true;
-                        break;
+
+        // Checkbox "Usa il file '.yml' fornito"
+        boolean checkedYml = myHomePageState.isCbUseProvidedYmlFilePath();
+        if (checkedYml) {
+            System.out.println("DEBUG - Percorso file YML customizzato scelto");
+            if (myHomePageState.isValidYml(myHomePageState.getBigraphFilePathYml())) {
+                System.out.println("DEBUG - File YML valido --> carico il bigrafo");
+                if (myBigraph != null) {
+                    try {
+                        checkLinks(myBigraph);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        System.out.println("DEBUG - Errore nell'esecuzione del metodo 'checkLinks'");
                     }
+                } else {
+                    System.out.println("DEBUG - Bigrafo null");
                 }
-                if (!net_in_common) {
-                    System.err.println("[WARNING] You cannot link two containers that are not in the same network.");
-                }
-            }
-        }
-    }
-
-    private static void checkSecurityLevel(DirectedBigraph b, String securityLevelsFile) throws Exception {
-        // use a Scanner to read the lines from the file
-        File file = new File(securityLevelsFile);
-        Scanner sc = new Scanner(file);
-
-        // create a graph to store the network hierarchy
-        // acyclic because loop means error
-        DirectedAcyclicGraph<String, DefaultEdge> g = new DirectedAcyclicGraph<>(DefaultEdge.class);
-
-        while (sc.hasNextLine()) {
-            String line = sc.nextLine();
-
-            Scanner lineScanner = new Scanner(line);
-            lineScanner.useDelimiter(">");
-
-            if (lineScanner.hasNext()) { // a line in "n1 > n2" form
-                String parent = lineScanner.next().trim(); // first member (whitespaces removed)
-                String son = lineScanner.next().trim(); // second member (whitespaces removed)
-
-                // add a vertex for each network specified
-                g.addVertex(parent);
-                g.addVertex(son);
-
-                // link the two networks
-                g.addEdge(parent, son);
             } else {
-                throw new Exception("Empty or invalid line. Unable to process.");
+                System.out.println("DEBUG - File YML non valido --> caricare un altro file");
             }
+        } else {
+            System.out.println("DEBUG - Utilizzare il percorso di default del file YML");
         }
-        sc.close();
 
+        // Checkbox "Esegui il check sui link"
+        boolean checkedLinks = myHomePageState.isCbDoInitialLinkCheck();
+        if (checkedLinks) {
+            System.out.println("Link da verificare --> eseguo metodo di verifica");
+        }
 
-        // support graph
-        DirectedGraph<String, DefaultEdge> netSecurityGraph = (DirectedGraph<String, DefaultEdge>) new DefaultDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
-
-        // iterate the nodes of container type
-        for (Node n : b.getNodes()) {
-            if (n.getControl().getName().equals("container")) {
-                String name = n.getName();
-                netSecurityGraph.addVertex(name); // add a node for the container to the graph
-
-                for (Child child : n.getChildren()) { // find networks and volumes connected to the container
-                    if (child.isNode()) {
-                        Node n1 = (Node) child;
-                        if (n1.getControl().getName().equals("network")) {
-                            if (n1.getOutPort(0).getHandle() != null) { // there is a network the container reads from
-                                String net = n1.getOutPort(0).getHandle().toString(); // the name of the network
-                                netSecurityGraph.addVertex(net);
-                                netSecurityGraph.addEdge(net, name);
-                            }
-
-                            if (n1.getOutPort(1).getHandle() != null) { // there is a network the container writes to
-                                String net = n1.getOutPort(1).getHandle().toString(); // the name of the network
-                                netSecurityGraph.addVertex(net);
-                                netSecurityGraph.addEdge(name, net);
-                            }
-                        } else if (n1.getControl().getName().equals("volume")) {
-                            if (n1.getOutPort(0).getHandle() != null) { // there is a volume the container reads from
-                                String vol = n1.getOutPort(0).getHandle().toString(); // the name of the volume
-                                netSecurityGraph.addVertex(vol);
-                                netSecurityGraph.addEdge(vol, name); // read from network
-                            }
-
-                            if (n1.getOutPort(1).getHandle() != null) { // there is a volume the container writes to
-                                String vol = n1.getOutPort(1).getHandle().toString(); // the name of the volume
-                                netSecurityGraph.addVertex(vol);
-                                netSecurityGraph.addEdge(name, vol); // write to network
-                            }
-                        }
-                    }
-                }
+        // Checkbox "Esegui il check sui livelli di sicurezza"
+        boolean checkedSecurityLevels = myHomePageState.isCbDoInitialSecurityLevelsCheck();
+        if (checkedSecurityLevels) {
+            System.out.println("Livelli di sicurezza da verificare");
+            if (myHomePageState.isValidSecurityLevelFile(myHomePageState.getSecurityLevelsFilePath())) {
+                System.out.println("DEBUG - File livelli di sicurezza valido --> carico il file");
+            } else {
+                System.out.println("DEBUG - File livelli di sicurezza non valido --> caricare un altro file");
             }
         }
 
-        // search network violations
-        TransitiveClosure.INSTANCE.closeSimpleDirectedGraph(g); // compute transitive closure of g
-        // create a connectivity inspector for the graph
-        ConnectivityInspector<String, DefaultEdge> ci = new ConnectivityInspector<>(netSecurityGraph);
+        // Creo l'opzione che imposta il percorso del file yml da caricare (e la setto come obbligatoria)
+        // --> docker-compose.yml location
+        Option input = createOption("i", "input", true, "input file path");
+        input.setRequired(true);
 
-        for (DefaultEdge e : g.edgeSet()) {
-            String hi = g.getEdgeSource(e);
-            String low = g.getEdgeTarget(e);
+        // Abilito la verifica dei link
+        Option checkLinks = createOption("c", "check-links",false,"set to check links connectivity");
 
-            if (!netSecurityGraph.containsVertex(hi)) {
-                throw new Exception("[ERROR] You specified a not existing network (" + hi + ")!");
-            } else if (!netSecurityGraph.containsVertex(low)) {
-                throw new Exception("[ERROR] You specified a not existing network (" + low + ")!");
-            } else if (ci.pathExists(hi, low)) {
-                System.err.println("[WARNING] Network \"" + low + "\" can read network \"" + hi + "\"!");
-            }
-        }
+        // Abilito la verifica delle gerarchie di rete
+        Option networkHierarchies = createOption("s", "security-level", true, "network hierarchy file path");
+
+        // Aggiungo le opzioni da utilizzare
+        final Option[] myOptions = {input, checkLinks, networkHierarchies};
+        addOption(options, myOptions);
+
+        return "home";
     }
+
+    @ModelAttribute("pageState")
+    public HomePageState getPageState() { return this.state; }
 }
