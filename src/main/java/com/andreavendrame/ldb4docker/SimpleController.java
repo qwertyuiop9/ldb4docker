@@ -9,7 +9,6 @@ import org.jgrapht.graph.DefaultDirectedGraph;
 import org.jgrapht.graph.DefaultEdge;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.ModelAndView;
 import org.apache.commons.cli.*;
@@ -18,7 +17,6 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.*;
 
@@ -106,31 +104,23 @@ public class SimpleController {
 
     }
 
-    @RequestMapping(value = "doLogin", method = RequestMethod.POST)
-    public String doLogin(@ModelAttribute Login login) {
-
-        System.out.println(login.toString());
-
-        return "test_form";
-
-    }
-
     private static void checkSecurityLevel(DirectedBigraph bigraph, String securityLevelsFilePath) throws Exception {
         // use a Scanner to read the lines from the file
-        File file = new File(securityLevelsFilePath);
-        Scanner sc = new Scanner(file);
+        File securityFile = new File(securityLevelsFilePath);
+        Scanner scanner = new Scanner(securityFile);
 
         // create a graph to store the network hierarchy
         // acyclic because loop means error
         DirectedAcyclicGraph<String, DefaultEdge> g = new DirectedAcyclicGraph<>(DefaultEdge.class);
 
-        while (sc.hasNextLine()) {
-            String line = sc.nextLine();
+        while (scanner.hasNextLine()) {
+
+            String line = scanner.nextLine();
 
             Scanner lineScanner = new Scanner(line);
             lineScanner.useDelimiter(">");
 
-            if (lineScanner.hasNext()) { // a line in "n1 > n2" form
+            if (lineScanner.hasNext()) { // a line in "n1 > n2 " form
                 String parent = lineScanner.next().trim(); // first member (whitespaces removed)
                 String son = lineScanner.next().trim(); // second member (whitespaces removed)
 
@@ -144,45 +134,34 @@ public class SimpleController {
                 throw new Exception("Empty or invalid line. Unable to process.");
             }
         }
-        sc.close();
-
+        scanner.close();
 
         // support graph
-        DirectedGraph<String, DefaultEdge> netSecurityGraph = (DirectedGraph<String, DefaultEdge>) new DefaultDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
+        DirectedGraph<String, DefaultEdge> networkSecurityGraph = (DirectedGraph<String, DefaultEdge>) new DefaultDirectedGraph<String, DefaultEdge>(DefaultEdge.class);
 
         // iterate the nodes of container type
-        for (Node n : bigraph.getNodes()) {
-            if (n.getControl().getName().equals("container")) {
-                String name = n.getName();
-                netSecurityGraph.addVertex(name); // add a node for the container to the graph
+        for (Node node : bigraph.getNodes()) {
+            if (node.getControl().getName().equals("container")) {
+                String nodeName = node.getName();
+                networkSecurityGraph.addVertex(nodeName); // add a node for the container to the graph
 
-                for (Child child : n.getChildren()) { // find networks and volumes connected to the container
+                for (Child child : node.getChildren()) { // find networks and volumes connected to the container
                     if (child.isNode()) {
                         Node n1 = (Node) child;
                         if (n1.getControl().getName().equals("network")) {
                             if (n1.getOutPort(0).getHandle() != null) { // there is a network the container reads from
-                                String net = n1.getOutPort(0).getHandle().toString(); // the name of the network
-                                netSecurityGraph.addVertex(net);
-                                netSecurityGraph.addEdge(net, name);
+                                String networkName = n1.getOutPort(0).getHandle().toString();
+                                networkSecurityGraph.addVertex(networkName);
+                                networkSecurityGraph.addEdge(networkName, nodeName);
                             }
-
                             if (n1.getOutPort(1).getHandle() != null) { // there is a network the container writes to
-                                String net = n1.getOutPort(1).getHandle().toString(); // the name of the network
-                                netSecurityGraph.addVertex(net);
-                                netSecurityGraph.addEdge(name, net);
+                                String networkName = n1.getOutPort(1).getHandle().toString(); // the name of the network
+                                networkSecurityGraph.addVertex(networkName);
+                                networkSecurityGraph.addEdge(nodeName, networkName);
                             }
                         } else if (n1.getControl().getName().equals("volume")) {
-                            if (n1.getOutPort(0).getHandle() != null) { // there is a volume the container reads from
-                                String vol = n1.getOutPort(0).getHandle().toString(); // the name of the volume
-                                netSecurityGraph.addVertex(vol);
-                                netSecurityGraph.addEdge(vol, name); // read from network
-                            }
-
-                            if (n1.getOutPort(1).getHandle() != null) { // there is a volume the container writes to
-                                String vol = n1.getOutPort(1).getHandle().toString(); // the name of the volume
-                                netSecurityGraph.addVertex(vol);
-                                netSecurityGraph.addEdge(name, vol); // write to network
-                            }
+                            addVolumesTheContainerReads(networkSecurityGraph, nodeName, n1);
+                            addVolumesTheContainerWrites(networkSecurityGraph, nodeName, n1);
                         }
                     }
                 }
@@ -192,15 +171,15 @@ public class SimpleController {
         // search network violations
         TransitiveClosure.INSTANCE.closeSimpleDirectedGraph(g); // compute transitive closure of g
         // create a connectivity inspector for the graph
-        ConnectivityInspector<String, DefaultEdge> ci = new ConnectivityInspector<>(netSecurityGraph);
+        ConnectivityInspector<String, DefaultEdge> ci = new ConnectivityInspector<>(networkSecurityGraph);
 
         for (DefaultEdge e : g.edgeSet()) {
             String hi = g.getEdgeSource(e);
             String low = g.getEdgeTarget(e);
 
-            if (!netSecurityGraph.containsVertex(hi)) {
+            if (!networkSecurityGraph.containsVertex(hi)) {
                 throw new Exception("[ERROR] You specified a not existing network (" + hi + ")!");
-            } else if (!netSecurityGraph.containsVertex(low)) {
+            } else if (!networkSecurityGraph.containsVertex(low)) {
                 throw new Exception("[ERROR] You specified a not existing network (" + low + ")!");
             } else if (ci.pathExists(hi, low)) {
                 System.err.println("[WARNING] Network \"" + low + "\" can read network \"" + hi + "\"!");
@@ -208,6 +187,28 @@ public class SimpleController {
         }
     }
 
+    private static void addVolumesTheContainerReads(DirectedGraph<String, DefaultEdge> networkSecurityGraph, String nodeName, Node n1) {
+        if (n1.getOutPort(0).getHandle() != null) { // there is a volume the container reads from
+            String volumeName = n1.getOutPort(0).getHandle().toString(); // the name of the volume
+            networkSecurityGraph.addVertex(volumeName);
+            networkSecurityGraph.addEdge(volumeName, nodeName); // read from network
+        }
+    }
+
+    /**
+     *
+     * @param networkSecurityGraph network graph to modify
+     * @param nodeName name of the node
+     * @param node node
+     *
+     */
+    private static void addVolumesTheContainerWrites(DirectedGraph<String, DefaultEdge> networkSecurityGraph, String nodeName, Node node) {
+        if (node.getOutPort(1).getHandle() != null) {
+            String volumeName = node.getOutPort(1).getHandle().toString(); // the name of the volume
+            networkSecurityGraph.addVertex(volumeName);
+            networkSecurityGraph.addEdge(nodeName, volumeName); // write to network
+        }
+    }
 
     // MODEL DATA -->
 

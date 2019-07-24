@@ -2,9 +2,9 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org">
 <head>
     <meta charset="UTF-8">
-    <script type="text/javascript" src="webjars/jquery/3.4.1/jquery.min.js"></script>
-    <script type="text/javascript" src="webjars/bootstrap/4.3.1/js/bootstrap.min.js"></script>
-    <link rel="stylesheet" href="webjars/bootstrap/4.3.1/css/bootstrap.min.css">
+    <script src="webjars/jquery/3.4.1/jquery.min.js" type="text/javascript"></script>
+    <script src="webjars/bootstrap/4.3.1/js/bootstrap.min.js" type="text/javascript"></script>
+    <link href="webjars/bootstrap/4.3.1/css/bootstrap.min.css" rel="stylesheet">
 
     <title>Home</title>
 </head>
@@ -39,13 +39,13 @@
 
     <form action="#" method="post" th:action="@{/setupPath}" th:object="${pageState}">
         <div class="form-group row">
-            <label for="inputMyBigraphFilePath" class="col-sm-3 col-form-label">Percorso file di configurazione</label>
+            <label class="col-sm-3 col-form-label" for="inputMyBigraphFilePath">Percorso file di configurazione</label>
             <div class="col-sm-7">
                 <input class="form-control" id="inputMyBigraphFilePath" placeholder="Percorso file bigrafo"
                        th:field="*{bigraphFilePathYml}" type="text">
             </div>
             <div class="col-sm-2">
-                <button type="submit" class="btn btn-primary">Carica file</button>
+                <button class="btn btn-primary" type="submit">Carica file</button>
             </div>
         </div>
         <div class="form-group row">
