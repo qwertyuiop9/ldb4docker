@@ -214,8 +214,8 @@ public class SimpleController {
     @ModelAttribute("allConfigs")
     public List<UserConfiguration> getConfigs() {
 
-        return configurationService.findAllConfigurations();
-
+        // Da attivare quando necessario --> return configurationService.findAllConfigurations();
+        return MyDebug.getTestUserConfigurations();
     }
 
     @RequestMapping(value = {"/", "", "home"})
