@@ -271,63 +271,84 @@ public class SimpleController {
         Yaml yaml = new Yaml();
         // declarations in the docker-compose.yml file
         Map<String, Map> o = (Map<String, Map>) yaml.load(input);
+        System.out.println("DEBUG - Dimensione YML " + o.size());
+
+        System.out.println("\n\n");
+
+        Iterator<String> iterator = o.keySet().iterator();
+        int index = 0;
+        while (iterator.hasNext()) {
+            System.out.println("Chiave " + index + ": " + iterator.next());
+            index++;
+        }
+
+        System.out.println();
         Map<String, Map> services = o.get("services");
         Map<String, Map> networks = o.get("networks");
         Map<String, Map> volumes = o.get("volumes");
 
         System.out.println("YAML config file correctly loaded.");
 
-        boolean default_net = (networks == null); // used to know if networks are used
+        boolean useDefaultNetwork = (networks == null); // used to know if networks are used
 
         // preparing controls, signature and empty bigraph
         List<DirectedControl> controls = new ArrayList<>();
 
+        // Il container ha una sola porta entrante con il nome del container stesso
         controls.add(new DirectedControl("container", true, 0, 1));
+        // Le reti (networks) hanno due porte uscenti (arityOut = 2): una per leggere e una per scrivere
         controls.add(new DirectedControl("network", true, 2, 0));
+        // I volumi (volumes) hanno due porte uscenti (arityOut = 2): una per leggere e una per scrivere
         controls.add(new DirectedControl("volume", true, 2, 0));
 
         DirectedSignature signature = new DirectedSignature(controls);
-        DirectedBigraphBuilder cmp = new DirectedBigraphBuilder(signature);
+        DirectedBigraphBuilder directedBigraphBuilder = new DirectedBigraphBuilder(signature);
 
-        Root r0 = cmp.addRoot(); // root 0
+
+        Root rootZero = directedBigraphBuilder.addRoot(); // root 0
         System.out.println("Added a root to the bigraph.");
 
-        // networks
-        Map<String, OuterName> net_names = new HashMap<>();
-        if (default_net) {
-            net_names.put("default", cmp.addAscNameOuterInterface(1, "default"));
+        // Networks -->
+        Map<String, OuterName> networkNames = new HashMap<>();
+
+        if (useDefaultNetwork) {
+            networkNames.put("default", directedBigraphBuilder.addAscNameOuterInterface(1, "default"));
             System.out.println("Added \"default\" network.");
         } else {
-            for (String net : networks.keySet()) {
-                net_names.put(net, cmp.addAscNameOuterInterface(1, net));
-                System.out.println("Added \"" + net + "\" network.");
+            for (String network : networks.keySet()) {
+                networkNames.put(network, directedBigraphBuilder.addAscNameOuterInterface(1, network));
+                System.out.println("Added \"" + network + "\" network.");
             }
         }
-        //volumes
-        Map<String, OuterName> vol_names = new HashMap<>();
+
+        System.out.println();
+
+        // Volumes -->
+        Map<String, OuterName> volumeNames = new HashMap<>();
         if (volumes != null) {
             for (String volume : volumes.keySet()) {
-                vol_names.put(volume, cmp.addAscNameOuterInterface(1, volume));
-                System.out.println("Added named volume \"" + volume + "\".");
+                OuterName newOuterName = directedBigraphBuilder.addAscNameOuterInterface(1, volume);
+                volumeNames.put(volume, newOuterName);
+                System.out.format("Aggiunto un volume chiamato '%s' con outerName '%s'\n", volume, newOuterName);
             }
         }
 
         // save service outer names
         int locality = 1;
-        Map<String, OuterName> onames = new HashMap<>();
+        Map<String, OuterName> outerNames = new HashMap<>();
 
         List<DirectedBigraph> graphs = new ArrayList<>(services.size());
 
         for (String service : services.keySet()) {
-            cmp.addSite(r0); // add a site
+            directedBigraphBuilder.addSite(rootZero); // add a site
             System.out.println("Added a site to the bigraph.");
 
-            if (default_net) {
-                cmp.addAscNameInnerInterface(locality, "default", net_names.get("default")); // add default net
+            if (useDefaultNetwork) {
+                directedBigraphBuilder.addAscNameInnerInterface(locality, "default", networkNames.get("default")); // add default net
             }
 
-            onames.put(service, cmp.addDescNameInnerInterface(locality, service));
-            cmp.addDescNameOuterInterface(1, service, onames.get(service)); // expose the name
+            outerNames.put(service, directedBigraphBuilder.addDescNameInnerInterface(locality, service));
+            directedBigraphBuilder.addDescNameOuterInterface(1, service, outerNames.get(service)); // expose the name
 
             locality++;
         }
@@ -335,62 +356,63 @@ public class SimpleController {
         locality = 1; // reset counter
         for (String service : services.keySet()) { // parse every service in docker-compose file
             System.out.println("Service: " + service);
-            List<String> current_nets = (List<String>) services.get(service).get("networks");
-            List<String> current_vols = (List<String>) services.get(service).get("volumes");
+            List<String> currentNetworks = (List<String>) services.get(service).get("networks");
+            List<String> currentVolumes = (List<String>) services.get(service).get("volumes");
             List<String> ports = (List<String>) services.get(service).get("expose");
             List<String> mappings = (List<String>) services.get(service).get("ports");
             List<String> links = (List<String>) services.get(service).get("links");
 
-            DirectedBigraphBuilder current = new DirectedBigraphBuilder(signature);
+            DirectedBigraphBuilder currentBuilder = new DirectedBigraphBuilder(signature);
             System.out.println("Creating a bigraph for the service.");
-            Root currentRoot = current.addRoot(); // add a root
-            Node node = current.addNode("container", currentRoot);
+            Root currentRoot = currentBuilder.addRoot(); // add a root
+            Node node = currentBuilder.addNode("container", currentRoot);
 
-            current.addSite(node); // add a site for future purposes
-            current.addDescNameOuterInterface(1, service, node.getInPort(0).getEditable());
+            currentBuilder.addSite(node); // add a site for future purposes
+            currentBuilder.addDescNameOuterInterface(1, service, node.getInPort(0).getEditable());
             // networks
-            if (default_net) {
+            if (useDefaultNetwork) {
                 System.out.println("Service connects to network \"default\", adding it to the interface.");
 
-                Node net_node = current.addNode("network", node);
-                OuterName net_name = current.addAscNameOuterInterface(1, "default");
+                Node networkNode = currentBuilder.addNode("network", node);
+                OuterName networkName = currentBuilder.addAscNameOuterInterface(1, "default");
 
-                net_node.getOutPort(0).getEditable().setHandle(net_name.getEditable()); // link the net to the node in read mode
-                net_node.getOutPort(1).getEditable().setHandle(net_name.getEditable()); // link the net to the node in write mode
-            } else if (current_nets == null) {
+                networkNode.getOutPort(0).getEditable().setHandle(networkName.getEditable()); // link the net to the node in read mode
+                networkNode.getOutPort(1).getEditable().setHandle(networkName.getEditable()); // link the net to the node in write mode
+
+            } else if (currentNetworks == null) {
                 throw new Exception("You must declare networks service connects to, because you declared global networks!");
             } else {
                 // local_nets cannot be null because previous exception was skipped
-                for (String network : current_nets) {
-                    if (!networks.keySet().contains(network)) {
+                for (String network : currentNetworks) {
+                    if (!networks.containsKey(network)) {
                         throw new Exception("Network \"" + network + "\" not declared.");
                     }
-                    System.out.println("Service connects to network \"" + network + "\", adding it to the interface.");
+                    System.out.println("Service " + service + " connects to network \"" + network + "\", adding it to the interface.");
 
-                    Node net_node = current.addNode("network", node);
-                    OuterName net_name = current.addAscNameOuterInterface(1, network);
+                    Node networkNode = currentBuilder.addNode("network", node);
+                    OuterName networkName = currentBuilder.addAscNameOuterInterface(1, network);
 
-                    net_node.getOutPort(0).getEditable().setHandle(net_name.getEditable()); // link the net to the node in read mode
-                    net_node.getOutPort(1).getEditable().setHandle(net_name.getEditable()); // link the net to the node in write mode
-                    cmp.addAscNameInnerInterface(locality, network, net_names.get(network));
+                    networkNode.getOutPort(0).getEditable().setHandle(networkName.getEditable()); // link the net to the node in read mode
+                    networkNode.getOutPort(1).getEditable().setHandle(networkName.getEditable()); // link the net to the node in write mode
+                    directedBigraphBuilder.addAscNameInnerInterface(locality, network, networkNames.get(network));
                 }
             }
             //volumes
-            if (current_vols != null) {
-                for (String volume : current_vols) {
+            if (currentVolumes != null) {
+                for (String volume : currentVolumes) {
                     String[] vs = volume.split(":");
                     if (vs.length > 1) { // check if the volume must be generated
-                        if (!vs[0].startsWith("/") && !vs[0].startsWith("./") && !vs[0].startsWith("~/") && (volumes == null || !volumes.keySet().contains(vs[0]))) {
+                        if (!vs[0].startsWith("/") && !vs[0].startsWith("./") && !vs[0].startsWith("~/") && (volumes == null || !volumes.containsKey(vs[0]))) {
                             throw new Exception("Volume \"" + vs[0] + "\" not declared.");
                         }
                         System.out.println("Service mounts volume \"" + vs[0] + "\" at path \"" + vs[1] + "\", adding it to the interface.");
-                        if (!vol_names.containsKey(vs[0])) {
-                            vol_names.put(vs[0], cmp.addAscNameOuterInterface(1, vs[0]));
+                        if (!volumeNames.containsKey(vs[0])) {
+                            volumeNames.put(vs[0], directedBigraphBuilder.addAscNameOuterInterface(1, vs[0]));
                         }
-                        cmp.addAscNameInnerInterface(locality, vs[1], vol_names.get(vs[0]));
+                        directedBigraphBuilder.addAscNameInnerInterface(locality, vs[1], volumeNames.get(vs[0]));
 
-                        Node vol_node = current.addNode("volume", node);
-                        OuterName vol_name = current.addAscNameOuterInterface(1, vs[1]);
+                        Node vol_node = currentBuilder.addNode("volume", node);
+                        OuterName vol_name = currentBuilder.addAscNameOuterInterface(1, vs[1]);
 
                         vol_node.getOutPort(0).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in read mode
                         if (!(vs.length == 3 && vs[2].equals("ro"))) {
@@ -398,10 +420,10 @@ public class SimpleController {
                         }
                     } else {
                         System.out.println("Service mounts volume at path \"" + vs[0] + "\", adding it to the interface.");
-                        cmp.addAscNameInnerInterface(locality, vs[0], cmp.addAscNameOuterInterface(1, locality + "_" + volume));
+                        directedBigraphBuilder.addAscNameInnerInterface(locality, vs[0], directedBigraphBuilder.addAscNameOuterInterface(1, locality + "_" + volume));
 
-                        Node vol_node = current.addNode("volume", node);
-                        OuterName vol_name = current.addAscNameOuterInterface(1, vs[0]);
+                        Node vol_node = currentBuilder.addNode("volume", node);
+                        OuterName vol_name = currentBuilder.addAscNameOuterInterface(1, vs[0]);
 
                         vol_node.getOutPort(0).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in read mode
                         if (!(vs.length == 3 && vs[2].equals("ro"))) {
@@ -414,8 +436,8 @@ public class SimpleController {
             if (ports != null) {
                 for (String port : ports) {
                     System.out.println("Service exposes port " + port + ", adding it to the interface.");
-                    current.addDescNameOuterInterface(1, service + "_" + port, current.addDescNameInnerInterface(1, service + "_" + port));
-                    cmp.addDescNameInnerInterface(locality, service + "_" + port);
+                    currentBuilder.addDescNameOuterInterface(1, service + "_" + port, currentBuilder.addDescNameInnerInterface(1, service + "_" + port));
+                    directedBigraphBuilder.addDescNameInnerInterface(locality, service + "_" + port);
                 }
             }
             // ports
@@ -423,8 +445,8 @@ public class SimpleController {
                 for (String map : mappings) {
                     String[] ps = map.split(":");
                     System.out.println("Service maps port " + ps[1] + " to port " + ps[0] + ", adding them to interfaces.");
-                    current.addDescNameOuterInterface(1, service + "_" + ps[1], current.addDescNameInnerInterface(1, service + "_" + ps[1]));
-                    cmp.addDescNameOuterInterface(1, ps[0], cmp.addDescNameInnerInterface(locality, service + "_" + ps[1]));
+                    currentBuilder.addDescNameOuterInterface(1, service + "_" + ps[1], currentBuilder.addDescNameInnerInterface(1, service + "_" + ps[1]));
+                    directedBigraphBuilder.addDescNameOuterInterface(1, ps[0], directedBigraphBuilder.addDescNameInnerInterface(locality, service + "_" + ps[1]));
                 }
             }
             // links
@@ -432,32 +454,44 @@ public class SimpleController {
                 for (String link : links) {
                     String[] ls = link.split(":");
                     if (ls.length > 1) {
-                        if (!onames.containsKey(ls[0])) {
+                        if (!outerNames.containsKey(ls[0])) {
                             throw new Exception("Service \"" + ls[0] + "\" undefined.");
                         }
                         System.out.println("Service links to container \"" + ls[0] + "\", renaming it to \"" + ls[1] + "\" recreating this on interfaces.");
-                        current.addAscNameInnerInterface(1, "l_" + ls[1] + "_" + service, current.addAscNameOuterInterface(1, "l_" + ls[1] + "_" + service));
-                        cmp.addAscNameInnerInterface(locality, "l_" + ls[1] + "_" + service, onames.get(ls[0]));
+                        currentBuilder.addAscNameInnerInterface(1, "l_" + ls[1] + "_" + service, currentBuilder.addAscNameOuterInterface(1, "l_" + ls[1] + "_" + service));
+                        directedBigraphBuilder.addAscNameInnerInterface(locality, "l_" + ls[1] + "_" + service, outerNames.get(ls[0]));
                     } else {
-                        if (!onames.containsKey(ls[0])) {
+                        if (!outerNames.containsKey(ls[0])) {
                             throw new Exception("Service \"" + ls[0] + "\" undefined.");
                         }
                         System.out.println("Service links to container \"" + ls[0] + "\", recreating this on interfaces.");
-                        current.addAscNameInnerInterface(1, "l_" + ls[0] + "_" + service, current.addAscNameOuterInterface(1, "l_" + ls[0] + "_" + service));
-                        cmp.addAscNameInnerInterface(locality, "l_" + ls[0] + "_" + service, onames.get(ls[0]));
+                        currentBuilder.addAscNameInnerInterface(1, "l_" + ls[0] + "_" + service, currentBuilder.addAscNameOuterInterface(1, "l_" + ls[0] + "_" + service));
+                        directedBigraphBuilder.addAscNameInnerInterface(locality, "l_" + ls[0] + "_" + service, outerNames.get(ls[0]));
                     }
                 }
             }
-            System.out.println("Resulting bigraph: \n" + current);
+            System.out.println("Resulting bigraph: \n" + currentBuilder);
             System.out.println("----------------------------------------------");
-            graphs.add(current.makeBigraph());
+            graphs.add(currentBuilder.makeBigraph());
             locality++; // ready for the next
         }
-        System.out.println("Compose bigraph: \n" + cmp);
+        System.out.println("Compose bigraph: \n" + directedBigraphBuilder);
         System.out.println("----------------------------------------------");
 
         List<DirectedBigraph> outs = new ArrayList<>();
-        outs.add(cmp.makeBigraph());
+        outs.add(directedBigraphBuilder.makeBigraph());
+
+        System.out.println("\n\nINIIO TEST --->");
+
+        System.out.println("Dimensione lista bigrafi: " + outs.size());
+        DirectedBigraph testBigraph = outs.get(0);
+        System.out.println("Nodi contenuti nel bigrafo: " + testBigraph.getNodes().size());
+        System.out.println("Siti contenuti nel bigrafo: " + testBigraph.getSites().size());
+        System.out.format("USID : %s \n", testBigraph.getSignature().getUSID());
+        System.out.format("Signature: %s\n", testBigraph.getSignature().toString());
+
+
+        System.out.println("<--- FINE TEST\n\n");
 
         return DirectedBigraph.compose(outs, graphs);
     }
@@ -475,6 +509,7 @@ public class SimpleController {
         if (!myHomePageState.getBigraphFilePathYml().equals("")) {
             try {
                 myBigraph = docker2ldb(myHomePageState.getBigraphFilePathYml());
+                System.out.println("Bigrafo carcato correttamente");
             } catch (Exception e) {
                 System.out.println("DEBUG - Errore nel caricamento del bigrafo");
                 e.printStackTrace();
@@ -525,4 +560,9 @@ public class SimpleController {
 
         return "home";
     }
+
+    private void test(DirectedBigraph bigraph) {
+
+    }
+
 }
