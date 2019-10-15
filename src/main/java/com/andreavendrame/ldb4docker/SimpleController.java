@@ -20,7 +20,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.*;
 
-
+@RestController
 @Controller
 public class SimpleController {
 
@@ -305,7 +305,7 @@ public class SimpleController {
         DirectedBigraphBuilder directedBigraphBuilder = new DirectedBigraphBuilder(signature);
 
 
-        Root rootZero = directedBigraphBuilder.addRoot(); // root 0
+        Root rootZero = directedBigraphBuilder.addRoot(); // root 1
         System.out.println("Added a root to the bigraph.");
 
         // Networks -->
@@ -472,6 +472,8 @@ public class SimpleController {
             }
             System.out.println("Resulting bigraph: \n" + currentBuilder);
             System.out.println("----------------------------------------------");
+
+
             graphs.add(currentBuilder.makeBigraph());
             locality++; // ready for the next
         }
@@ -481,7 +483,7 @@ public class SimpleController {
         List<DirectedBigraph> outs = new ArrayList<>();
         outs.add(directedBigraphBuilder.makeBigraph());
 
-        System.out.println("\n\nINIIO TEST --->");
+        System.out.println("\n\nINIZIO TEST --->");
 
         System.out.println("Dimensione lista bigrafi: " + outs.size());
         DirectedBigraph testBigraph = outs.get(0);
@@ -509,7 +511,7 @@ public class SimpleController {
         if (!myHomePageState.getBigraphFilePathYml().equals("")) {
             try {
                 myBigraph = docker2ldb(myHomePageState.getBigraphFilePathYml());
-                System.out.println("Bigrafo carcato correttamente");
+                System.out.println("Bigrafo caricato correttamente");
             } catch (Exception e) {
                 System.out.println("DEBUG - Errore nel caricamento del bigrafo");
                 e.printStackTrace();
@@ -561,7 +563,9 @@ public class SimpleController {
         return "home";
     }
 
-    private void test(DirectedBigraph bigraph) {
+    @RequestMapping(value = "/createNewBigraph")
+    private String createDirectedBigraph() {
+        return "Creazione nuovo bigrafo";
 
     }
 
