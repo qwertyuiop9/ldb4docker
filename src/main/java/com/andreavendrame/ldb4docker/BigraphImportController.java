@@ -1,6 +1,6 @@
 package com.andreavendrame.ldb4docker;
 
-import it.uniud.mads.jlibbig.core.ldb.*;
+import com.andreavendrame.ldb4docker.myjlibbig.ldb.*;
 import org.springframework.web.bind.annotation.*;
 import org.yaml.snakeyaml.Yaml;
 
@@ -14,8 +14,8 @@ import java.util.*;
 public class BigraphImportController {
 
     private static final String DEFAULT_NETWORK_NAME = "default_network";
-    private static final int READ_MODE = 0;
-    private static final int WRITE_MODE = 1;
+    public static final int READ_MODE = 0;
+    public static final int WRITE_MODE = 1;
 
 
     @GetMapping(value = "/importBigraph/{bigraphPath}")
@@ -50,7 +50,7 @@ public class BigraphImportController {
         boolean useDefaultNetwork = (networks == null); // used to know if networks are used
 
         // Preparo i controlli, la signature e il bigrafo vuoto
-        List<DirectedControl> bigraphControls = prepareBigraphControls();
+        List<com.andreavendrame.ldb4docker.myjlibbig.ldb.DirectedControl> bigraphControls = prepareBigraphControls();
         DirectedSignature signature = new DirectedSignature(bigraphControls);
         DirectedBigraphBuilder directedBigraphBuilder = new DirectedBigraphBuilder(signature);
 
@@ -246,7 +246,7 @@ public class BigraphImportController {
      *
      * @return una lista statica di controlli del bigrafo
      */
-    public static List<DirectedControl> prepareBigraphControls() {
+    public static List<com.andreavendrame.ldb4docker.myjlibbig.ldb.DirectedControl> prepareBigraphControls() {
 
         List<DirectedControl> bigraphControls = new LinkedList<>();
 

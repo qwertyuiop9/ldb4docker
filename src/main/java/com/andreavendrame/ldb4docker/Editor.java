@@ -1,7 +1,7 @@
-package com.andreavendrame.ldb4docker.editor;
+package com.andreavendrame.ldb4docker;
 
-import it.uniud.mads.jlibbig.core.Interface;
-import it.uniud.mads.jlibbig.core.ldb.*;
+import com.andreavendrame.ldb4docker.myjlibbig.Interface;
+import com.andreavendrame.ldb4docker.myjlibbig.ldb.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
+import static com.andreavendrame.ldb4docker.BigraphImportController.READ_MODE;
 import static com.andreavendrame.ldb4docker.BigraphImportController.prepareBigraphControls;
 
 @RestController
