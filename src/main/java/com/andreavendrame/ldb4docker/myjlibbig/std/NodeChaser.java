@@ -3,8 +3,8 @@ package com.andreavendrame.ldb4docker.myjlibbig.std;
 import java.lang.ref.*;
 import java.util.*;
 
-import it.uniud.mads.jlibbig.core.Owner;
-import it.uniud.mads.jlibbig.core.attachedProperties.*;
+import com.andreavendrame.ldb4docker.myjlibbig.Owner;
+import com.andreavendrame.ldb4docker.myjlibbig.attachedProperties.*;
 
 /**
  * Objects created from this class can be used to keep trace of nodes and their
