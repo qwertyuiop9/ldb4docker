@@ -10,7 +10,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 
-class EditableEdge implements Edge, EditableHandle, Replicable {
+public class EditableEdge implements Edge, EditableHandle, Replicable {
     private String name;
 
     private Collection<EditablePoint> points = Collections.newSetFromMap(new IdentityHashMap<EditablePoint, Boolean>());
@@ -18,11 +18,11 @@ class EditableEdge implements Edge, EditableHandle, Replicable {
     private Owner owner;
     private final ReplicationListenerContainer rep = new ReplicationListenerContainer();
 
-    EditableEdge() {
+    public EditableEdge() {
         name = "E_" + NameGenerator.DEFAULT.generate();
     }
 
-    EditableEdge(Owner owner) {
+    public EditableEdge(Owner owner) {
         this();
         this.setOwner(owner);
     }

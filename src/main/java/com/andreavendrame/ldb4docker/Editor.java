@@ -1,6 +1,7 @@
 package com.andreavendrame.ldb4docker;
 
 import com.andreavendrame.ldb4docker.myjlibbig.Interface;
+import com.andreavendrame.ldb4docker.myjlibbig.Owner;
 import com.andreavendrame.ldb4docker.myjlibbig.ldb.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -10,8 +11,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.andreavendrame.ldb4docker.BigraphImportController.READ_MODE;
-import static com.andreavendrame.ldb4docker.BigraphImportController.prepareBigraphControls;
+import static com.andreavendrame.ldb4docker.BigraphImportController.*;
 
 @RestController
 @RequestMapping(value = "/editor")
@@ -29,9 +29,11 @@ public class Editor {
     private final List<OuterName> outerNames = new LinkedList<>();
     private final List<OuterName> innerNames = new LinkedList<>();
     private final List<Site> sites = new LinkedList<>();
+    private final List<Edge> edges = new LinkedList<>();
 
     // Variabili di controllo
     private boolean isEditing = false;
+    private boolean useDefaultNetwork = true;
 
 
     @RequestMapping(value = "/start-editing")
@@ -44,6 +46,17 @@ public class Editor {
         this.isEditing = true;
         return this.builder;
 
+    }
+
+    @GetMapping(value = "useDefaultNetwork")
+    public String getUseDefaultNetworkProperty() {
+        return "Default network used: " + this.useDefaultNetwork;
+    }
+
+    @PostMapping(value = "useDefaultNetwork")
+    public String getUseDefaultNetworkProperty(@RequestParam(value = "enable", defaultValue = "false") boolean useDefaultNetwork) {
+        this.useDefaultNetwork = useDefaultNetwork;
+        return "Default network used: " + this.useDefaultNetwork;
     }
 
 
@@ -175,6 +188,27 @@ public class Editor {
         // Il metodo va completato in quanto ci sono molte varianti di parametri
         return this.builder.addNode(controlName, (Node) getNodes().toArray()[nodePosition]);
 
+    }
+
+    @PostMapping(value = "setPortMode")
+    private void test(@RequestParam(name = "mode", defaultValue = "read") String portAttachMode,
+                      @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex,
+                      @RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex) {
+
+        if (handleIndex == -1) {
+            System.out.println("Indice del parametro 'Handle' non valido");
+        } else if (nodeIndex == -1) {
+            System.out.println("Indice del parametro 'Node' non valido");
+        }
+
+        Node node = this.nodes.get(nodeIndex);
+        Handle handle = this.handles.get(handleIndex);
+
+        if (portAttachMode.equals("read")) {
+            node.getOutPort(READ_MODE).getEditable().setHandle(handle.getEditable());
+        } else {
+            node.getOutPort(WRITE_MODE).getEditable().setHandle(handle.getEditable());
+        }
     }
 
 
