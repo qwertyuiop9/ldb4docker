@@ -1,15 +1,13 @@
 package com.andreavendrame.ldb4docker;
 
 import com.andreavendrame.ldb4docker.myjlibbig.Interface;
-import com.andreavendrame.ldb4docker.myjlibbig.Owner;
 import com.andreavendrame.ldb4docker.myjlibbig.ldb.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.andreavendrame.ldb4docker.BigraphImportController.*;
 
@@ -20,31 +18,41 @@ public class Editor {
     @Autowired
     private RestTemplate restTemplate;
 
-    private DirectedBigraphBuilder builder;
+    private DirectedBigraphBuilder currentBuilder;
+    private DirectedSignature currentSignature;
+    private List<DirectedBigraphBuilder> builderList = new LinkedList<>();
+
     private static final String REST_CALL_PARAMETER_EXAMPLE = "/authors?name=Andrea&name=Anna";
+    private static final String VOLUME = "volume";
+    public static final String NETWORK = "network";
+    public static final String PARENT_ROOT = "root";
+    public static final String PARENT_EDITABLE_PARENT = "editableParent";
+    public static final String PARENT_NODE = "node";
 
     private final List<Handle> handles = new LinkedList<>();
-    private final List<Node> nodes = new LinkedList<>();
-    private final List<Root> roots = new LinkedList<>();
+    // private final List<Root> roots = new LinkedList<>();
     private final List<OuterName> outerNames = new LinkedList<>();
     private final List<OuterName> innerNames = new LinkedList<>();
     private final List<Site> sites = new LinkedList<>();
     private final List<Edge> edges = new LinkedList<>();
+    private final List<Node> nodes = new LinkedList<>();
+    private final List<EditableParent> editableParents = new LinkedList<>();
+    private final List<DirectedControl> bigraphControls = new LinkedList<>();
 
     // Variabili di controllo
-    private boolean isEditing = false;
     private boolean useDefaultNetwork = true;
+    Map<String, OuterName> networkNames = new HashMap<>();
+    Map<String, OuterName> volumeNames = new HashMap<>();
+    Map<String, OuterName> otherNames = new HashMap<>();
 
+    @GetMapping(value = "/start-editing")
+    public DirectedBigraphBuilder createBuilder() {
 
-    @RequestMapping(value = "/start-editing")
-    public DirectedBigraphBuilder startEditing() {
+        System.out.format("Creo il builder...");
+        this.currentBuilder = new DirectedBigraphBuilder(this.currentSignature);
+        System.out.println("OK!\n");
 
-        // Preparo i controlli, la signature e il bigrafo vuoto
-        List<DirectedControl> bigraphControls = prepareBigraphControls();
-        DirectedSignature signature = new DirectedSignature(bigraphControls);
-        this.builder = new DirectedBigraphBuilder(signature);
-        this.isEditing = true;
-        return this.builder;
+        return this.currentBuilder;
 
     }
 
@@ -59,67 +67,134 @@ public class Editor {
         return "Default network used: " + this.useDefaultNetwork;
     }
 
-
-    @PostMapping(value = "/roots")
-    private Object addRoot(@RequestParam(value = "rootIndex", defaultValue = "-1") int rootIndex) {
-        if (isEditing) {
-            System.out.println("Indice della radice: " + rootIndex);
-            Root root;
-            if (rootIndex == -1) {
-                // Aggiungo una radice senza località
-                root = this.builder.addRoot();
-            } else {
-                // Aggiungo una radice con località
-                root = this.builder.addRoot(rootIndex);
-            }
-            this.roots.add(root);
-            return root;
-        } else {
-            System.out.println("Errore - Builder non inizializzato");
-            return "Errore - Builder non inizializzato";
-        }
-    }
-
+    /**
+     * @param position posizione della radice del bigrafo nella lista delle radici disponibili
+     * @return l'intera lista di radici del builder se {@param position} è -1; la root in posizione {@param position} altrimenti
+     */
     @GetMapping(value = "/roots")
     private Object getRoot(@RequestParam(name = "position", defaultValue = "-1") int position) {
         if (position == -1) {
-            return this.builder.getRoots();
+            return this.currentBuilder.getRoots();
         } else {
-            return this.builder.getRoots().get(position);
+            return this.currentBuilder.getRoots().get(position);
         }
     }
 
-    @GetMapping(value = "/nodes")
-    private Collection<? extends Node> getNodes() {return this.builder.getNodes();}
+    /**
+     * @param locality località del bigrafo in cui aggiungere la radice
+     * @return la radice appena aggiunta se è stato possibile aggiungerla senza errori
+     */
+    @PostMapping(value = "/roots")
+    private Object addRoot(@RequestParam(value = "locality", defaultValue = "-1") int locality) {
+        System.out.println("Indice della radice: " + locality);
+        Root root;
+        if (locality == -1) {
+            // Aggiungo una radice senza località
+            root = this.currentBuilder.addRoot();
+        } else {
+            // Aggiungo una radice con località
+            root = this.currentBuilder.addRoot(locality);
+        }
+        return root;
+    }
+
+    /**
+     * @param index indice della radice da ispezionare
+     * @return una stringa che descrive il nome della radice e quello dei figli ad essa direttamente collegati (se presenti) se
+     * il parametro {@param index} è valido, mentre la lista di tutte le radici con i figli direttamente connessi altrimenti
+     */
+    @GetMapping(value = "/showRoots")
+    private String showRoots(@RequestParam(value = "index", defaultValue = "-1") int index) {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        if (index != -1) {
+            EditableRoot editableRoot = this.currentBuilder.getRoots().get(index).getEditable();
+            stringBuilder.append("Radice ").append(editableRoot.toString()).append(" --> ");
+            int childIndex = 0;
+            editableRoot.getEditableChildren().forEach(editableChild -> {
+                stringBuilder.append("Figlio ").append(childIndex).append(" : ");
+                stringBuilder.append(editableChild.toString());
+                stringBuilder.append(", ");
+            });
+        } else {
+            for (Root root : this.currentBuilder.getRoots()) {
+                EditableRoot editableRoot = root.getEditable();
+                stringBuilder.append(editableRoot.toString());
+                stringBuilder.append(" - Figli: [");
+                AtomicInteger childIndex = new AtomicInteger();
+                editableRoot.getEditableChildren().forEach(editableChild -> {
+                    stringBuilder.append("Figlio ").append(childIndex.get()).append(" : ");
+                    stringBuilder.append(editableChild.toString());
+                    stringBuilder.append(", ");
+                    childIndex.getAndIncrement();
+                });
+                stringBuilder.append("]");
+                stringBuilder.append("\n");
+            }
+        }
+
+        return stringBuilder.toString();
+    }
 
     @GetMapping(value = "/signatures")
-    private DirectedSignature getSignature() { return this.builder.getSignature();}
+    private DirectedSignature getSignature() {
+        return this.currentBuilder.getSignature();
+    }
 
     @GetMapping(value = "/innerInterfaces")
-    private Interface getInnerInterface() {return this.builder.getInnerInterface();}
+    private Interface getInnerInterface() {
+        return this.currentBuilder.getInnerInterface();
+    }
 
     @GetMapping(value = "/outerInterfaces")
-    private Interface getOuterInterface() {return this.builder.getOuterInterface();}
+    private Interface getOuterInterface() {
+        return this.currentBuilder.getOuterInterface();
+    }
+
+    @GetMapping(value = "/outerNames")
+    private OuterName[] getOuterNames(@RequestParam(name = "nameType", defaultValue = "other") String nameType) {
+
+        List<OuterName> list = new LinkedList<>();
+        switch (nameType) {
+            case NETWORK:
+                return (OuterName[]) this.networkNames.values().toArray();
+            case VOLUME:
+                return (OuterName[]) this.volumeNames.values().toArray();
+            default:
+                return (OuterName[]) this.otherNames.values().toArray();
+        }
+    }
+
+    @GetMapping(value = "/networkNames")
+    private Map<String, OuterName> getNetworkNames() {
+        return this.networkNames;
+    }
 
     @GetMapping(value = "/sites")
-    private Interface getSites() {return (Interface) this.builder.getSites();}
+    private Interface getSites() {
+        return (Interface) this.currentBuilder.getSites();
+    }
 
     @GetMapping(value = "/edges")
-    private Collection<? extends Edge> getEdges() {return this.builder.getEdges();}
+    private Collection<? extends Edge> getEdges() {
+        return this.currentBuilder.getEdges();
+    }
 
     @GetMapping(value = "/handles")
-    private List<Handle> getHandles() { return this.handles;}
+    private List<Handle> getHandles() {
+        return this.handles;
+    }
 
     @PostMapping(value = "/addDescNameInnerInterface")
     private OuterName addDescNameInnerInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
-                                               @RequestParam(name = "name", defaultValue = "") String name) {
+                                                @RequestParam(name = "name", defaultValue = "") String name) {
         if (localityIndex == -1) {
             return null;
         } else {
             if (name.equals("")) {
-                return this.builder.addDescNameInnerInterface(localityIndex);
+                return this.currentBuilder.addDescNameInnerInterface(localityIndex);
             } else {
-                return this.builder.addDescNameInnerInterface(localityIndex, name);
+                return this.currentBuilder.addDescNameInnerInterface(localityIndex, name);
             }
         }
     }
@@ -132,28 +207,47 @@ public class Editor {
             return null;
         } else {
             if (name.equals("") && handleIndex == -1) {     // Solo la località specificata
-                return this.builder.addDescNameOuterInterface(localityIndex);
+                return this.currentBuilder.addDescNameOuterInterface(localityIndex);
             } else if (name.equals("")) {                   // Località e Handle specificati
-                return this.builder.addDescNameOuterInterface(localityIndex, handles.get(handleIndex));
+                return this.currentBuilder.addDescNameOuterInterface(localityIndex, handles.get(handleIndex));
             } else if (handleIndex == -1) {                 // Località e Name specificati
-                return this.builder.addDescNameOuterInterface(localityIndex, name);
+                return this.currentBuilder.addDescNameOuterInterface(localityIndex, name);
             } else {
-                return this.builder.addDescNameOuterInterface(localityIndex, name, handles.get(handleIndex));
+                return this.currentBuilder.addDescNameOuterInterface(localityIndex, name, handles.get(handleIndex));
             }
         }
     }
 
     @PostMapping(value = "/addAscNameOuterInterface")
     private OuterName addAscNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
-                                               @RequestParam(name = "name", defaultValue = "") String name) {
+                                               @RequestParam(name = "name", defaultValue = "") String name,
+                                               @RequestParam(name = "nameType", defaultValue = "other") String nameType) {
         if (localityIndex == -1) {
             return null;
         } else {
+            OuterName outerName;
             if (name.equals("")) {
-                return this.builder.addAscNameOuterInterface(localityIndex);
+                outerName = this.currentBuilder.addAscNameOuterInterface(localityIndex);
             } else {
-                return this.builder.addAscNameOuterInterface(localityIndex, name);
+                outerName = this.currentBuilder.addAscNameOuterInterface(localityIndex, name);
             }
+            switch (nameType) {
+                case NETWORK:
+                    networkNames.put(name, outerName);
+                    System.out.format("Nome %s aggiunto alla mappa delle reti\n", name);
+                    break;
+                case VOLUME:
+                    volumeNames.put(name, outerName);
+                    System.out.format("Nome %s aggiunto alla mappa dei volumi\n", name);
+                    break;
+                default:
+                    otherNames.put(name, outerName);
+                    System.out.format("Nome %s aggiunto alla mappa dei nomi generici\n", name);
+                    break;
+            }
+
+            this.outerNames.add(outerName);
+            return outerName;
         }
     }
 
@@ -165,28 +259,89 @@ public class Editor {
             return null;
         } else {
             if (name.equals("") && handleIndex == -1) {     // Solo la località specificata
-                return this.builder.addAscNameInnerInterface(localityIndex);
+                return this.currentBuilder.addAscNameInnerInterface(localityIndex);
             } else if (name.equals("")) {                   // Località e Handle specificati
-                return this.builder.addAscNameInnerInterface(localityIndex, handles.get(handleIndex));
+                return this.currentBuilder.addAscNameInnerInterface(localityIndex, handles.get(handleIndex));
             } else if (handleIndex == -1) {                 // Località e Name specificati
-                return this.builder.addAscNameInnerInterface(localityIndex, name);
+                return this.currentBuilder.addAscNameInnerInterface(localityIndex, name);
             } else {
-                return this.builder.addAscNameInnerInterface(localityIndex, name, handles.get(handleIndex));
+                return this.currentBuilder.addAscNameInnerInterface(localityIndex, name, handles.get(handleIndex));
             }
         }
     }
 
     @PostMapping(value = "/sites")
-    private Site addSite(@RequestParam(name = "parentPosition") int position) {
-        return this.builder.addSite(this.nodes.get(position));
+    private Site addSite(@RequestParam(name = "parentType") String parentType,
+                         @RequestParam(name = "parentIndex") int parentIndex) {
+
+        Site resultSite = null;
+        Parent parentNode = null;
+
+        switch (parentType) {
+
+            case PARENT_NODE:
+                parentNode = this.nodes.get(parentIndex);
+                break;
+            case PARENT_ROOT:
+                parentNode = this.currentBuilder.getRoots().get(parentIndex);
+                break;
+            case PARENT_EDITABLE_PARENT:
+                parentNode = this.editableParents.get(parentIndex);
+                break;
+        }
+
+        resultSite = this.currentBuilder.addSite(parentNode);
+        this.sites.add(resultSite);
+        return resultSite;
     }
 
+    /**
+     * @param controlName
+     * @param parentType  uno tra "root", "editableParent", "node"
+     * @param parentIndex
+     * @return
+     */
     @PostMapping(value = "/nodes")
     private Node addNode(@RequestParam(name = "controlName") String controlName,
-                         @RequestParam(name = "nodePosition") int nodePosition) {
+                         @RequestParam(name = "parentType") String parentType,
+                         @RequestParam(name = "parentIndex") int parentIndex) {
 
-        // Il metodo va completato in quanto ci sono molte varianti di parametri
-        return this.builder.addNode(controlName, (Node) getNodes().toArray()[nodePosition]);
+        Node resultNode = null;
+        Parent parentNode = null;
+
+        switch (parentType) {
+
+            case PARENT_NODE:
+                parentNode = this.nodes.get(parentIndex);
+                break;
+            case PARENT_ROOT:
+                parentNode = this.currentBuilder.getRoots().get(parentIndex);
+                break;
+            case PARENT_EDITABLE_PARENT:
+                parentNode = this.editableParents.get(parentIndex);
+                break;
+        }
+
+        resultNode = this.currentBuilder.addNode(controlName, parentNode);
+        this.nodes.add(resultNode);
+
+        return resultNode;
+
+    }
+
+    @GetMapping(value = "/nodes")
+    private Object getNodes(@RequestParam(value = "nodeIndex", defaultValue = "-1") int nodeIndex) {
+        if (nodeIndex == -1) {
+            return this.currentBuilder.getNodes().toArray();
+        } else {
+            Node[] nodes = (Node[]) this.currentBuilder.getNodes().toArray();
+            if (nodeIndex < nodes.length) {
+                return nodes[nodeIndex];
+            } else {
+                return "Node index not valid";
+            }
+
+        }
 
     }
 
@@ -211,5 +366,28 @@ public class Editor {
         }
     }
 
+    @PostMapping(value = "directedControls")
+    private String addBigraphControl(@RequestParam(name = "controlName") String controlName,
+                                     @RequestParam(name = "arityIn") int arityIn,
+                                     @RequestParam(name = "arityOut") int arityOut,
+                                     @RequestParam(name = "active") boolean active) {
 
+        if (arityIn < 0 || arityOut < 0 || arityIn > 2 || arityOut > 2) {
+            return "L'arietà di almeno una porta non è valida";
+        } else {
+            bigraphControls.add(new DirectedControl(controlName, active, arityOut, arityIn));
+            return String.format("Aggiunto il controllo '%s' (attivo: %b) con arityIn %d e arityOut %d", controlName, active, arityIn, arityOut);
+        }
+    }
+
+    @GetMapping(value = "directedControls")
+    private List<DirectedControl> getBigraphControls() {
+        return this.bigraphControls;
+    }
+
+    @GetMapping(value = "directedSignatures")
+    private String createDirectedSignature() {
+        this.currentSignature = new DirectedSignature(bigraphControls);
+        return this.currentSignature.toString();
+    }
 }

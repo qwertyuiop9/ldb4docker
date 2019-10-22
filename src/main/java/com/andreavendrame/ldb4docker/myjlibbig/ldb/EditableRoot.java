@@ -10,7 +10,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
-class EditableRoot implements EditableParent, Root, EditableOwned {
+public class EditableRoot implements EditableParent, Root, EditableOwned {
 
     static final String PROPERTY_OWNER = "Owner";
     private final ProtectedProperty.ValueSetter<Owner> ownerSetter = new ProtectedProperty.ValueSetter<>();
@@ -34,10 +34,10 @@ class EditableRoot implements EditableParent, Root, EditableOwned {
 
     @Override
     public String toString() {
-        Owner o = this.getOwner();
-        if (o != null) {
-            DirectedBigraphHandler<?> h = (DirectedBigraphHandler<?>) o;
-            int i = h.getRoots().indexOf(this);
+        Owner owner = this.getOwner();
+        if (owner != null) {
+            DirectedBigraphHandler<?> handler = (DirectedBigraphHandler<?>) owner;
+            int i = handler.getRoots().indexOf(this);
             if (i >= 0)
                 return i + ":r";
         }

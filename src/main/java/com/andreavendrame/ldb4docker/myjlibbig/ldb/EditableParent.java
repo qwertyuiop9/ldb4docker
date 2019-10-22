@@ -6,7 +6,7 @@ import com.andreavendrame.ldb4docker.myjlibbig.attachedProperties.Replicable;
 
 import java.util.Collection;
 
-interface EditableParent extends Parent, Replicable, Owned, PropertyTarget {
+public interface EditableParent extends Parent, Replicable, Owned, PropertyTarget {
     /**
      * Get the set of children. This set and every object inside it can be
      * modified.

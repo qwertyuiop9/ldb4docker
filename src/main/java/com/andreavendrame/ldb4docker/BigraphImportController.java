@@ -14,8 +14,8 @@ import java.util.*;
 public class BigraphImportController {
 
     private static final String DEFAULT_NETWORK_NAME = "default_network";
-    public static final int READ_MODE = 0;
-    public static final int WRITE_MODE = 1;
+    static final int READ_MODE = 0;
+    static final int WRITE_MODE = 1;
 
 
     @GetMapping(value = "/importBigraph/{bigraphPath}")
@@ -118,7 +118,7 @@ public class BigraphImportController {
             Root currentRoot = currentBuilder.addRoot(); // add a root
             Node node = currentBuilder.addNode("container", currentRoot);
 
-            currentBuilder.addSite(node); // add a site for future purposes
+            Site site = currentBuilder.addSite(node); // add a site for future purposes
             InnerName innerName = currentBuilder.addDescNameOuterInterface(1, service, node.getInPort(READ_MODE).getEditable());
             // networks
             if (useDefaultNetwork) {

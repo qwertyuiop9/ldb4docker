@@ -23,7 +23,7 @@ class EditableNode implements Node, EditableParent, EditableChild {
     private Collection<EditableChild> children;
     private String name;
 
-    EditableNode(DirectedControl control) {
+    public EditableNode(DirectedControl control) {
         this.name = "N_" + NameGenerator.DEFAULT.generate();
         this.control = control;
         List<EditableOutPort> outPorts = new ArrayList<>();
