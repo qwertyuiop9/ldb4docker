@@ -28,22 +28,24 @@ public class Editor {
     public static final String PARENT_ROOT = "root";
     public static final String PARENT_EDITABLE_PARENT = "editableParent";
     public static final String PARENT_NODE = "node";
+    public static final String HANDLE_OUTER_NAME = "outerName";
+    public static final String HANDLE_EDITABLE_HANDLE = "editableHandle";
+    public static final String HANDLE_IN_PORT = "inPort";
+    public static final String HANDLE_EDGE = "edge";
 
     private final List<Handle> handles = new LinkedList<>();
     // private final List<Root> roots = new LinkedList<>();
     private final List<OuterName> outerNames = new LinkedList<>();
-    private final List<OuterName> innerNames = new LinkedList<>();
+    private final List<InnerName> innerNames = new LinkedList<>();
     private final List<Site> sites = new LinkedList<>();
     private final List<Edge> edges = new LinkedList<>();
     private final List<Node> nodes = new LinkedList<>();
     private final List<EditableParent> editableParents = new LinkedList<>();
     private final List<DirectedControl> bigraphControls = new LinkedList<>();
+    private final List<String> services = new LinkedList<>();
+    private final List<EditableHandle> editableHandles = new LinkedList<>();
+    private final List<InPort> inPorts = new LinkedList<>();
 
-    // Variabili di controllo
-    private boolean useDefaultNetwork = true;
-    Map<String, OuterName> networkNames = new HashMap<>();
-    Map<String, OuterName> volumeNames = new HashMap<>();
-    Map<String, OuterName> otherNames = new HashMap<>();
 
     @GetMapping(value = "/start-editing")
     public DirectedBigraphBuilder createBuilder() {
@@ -54,17 +56,6 @@ public class Editor {
 
         return this.currentBuilder;
 
-    }
-
-    @GetMapping(value = "useDefaultNetwork")
-    public String getUseDefaultNetworkProperty() {
-        return "Default network used: " + this.useDefaultNetwork;
-    }
-
-    @PostMapping(value = "useDefaultNetwork")
-    public String getUseDefaultNetworkProperty(@RequestParam(value = "enable", defaultValue = "false") boolean useDefaultNetwork) {
-        this.useDefaultNetwork = useDefaultNetwork;
-        return "Default network used: " + this.useDefaultNetwork;
     }
 
     /**
@@ -112,7 +103,7 @@ public class Editor {
             stringBuilder.append("Radice ").append(editableRoot.toString()).append(" --> ");
             int childIndex = 0;
             editableRoot.getEditableChildren().forEach(editableChild -> {
-                stringBuilder.append("Figlio ").append(childIndex).append(" : ");
+                stringBuilder.append("Child ").append(childIndex).append(" : ");
                 stringBuilder.append(editableChild.toString());
                 stringBuilder.append(", ");
             });
@@ -120,10 +111,10 @@ public class Editor {
             for (Root root : this.currentBuilder.getRoots()) {
                 EditableRoot editableRoot = root.getEditable();
                 stringBuilder.append(editableRoot.toString());
-                stringBuilder.append(" - Figli: [");
+                stringBuilder.append(" - Children: [");
                 AtomicInteger childIndex = new AtomicInteger();
                 editableRoot.getEditableChildren().forEach(editableChild -> {
-                    stringBuilder.append("Figlio ").append(childIndex.get()).append(" : ");
+                    stringBuilder.append("Child ").append(childIndex.get()).append(" : ");
                     stringBuilder.append(editableChild.toString());
                     stringBuilder.append(", ");
                     childIndex.getAndIncrement();
@@ -152,23 +143,17 @@ public class Editor {
     }
 
     @GetMapping(value = "/outerNames")
-    private OuterName[] getOuterNames(@RequestParam(name = "nameType", defaultValue = "other") String nameType) {
+    private List<OuterName> getOuterNames(@RequestParam(name = "index", defaultValue = "-1") int index) {
 
-        List<OuterName> list = new LinkedList<>();
-        switch (nameType) {
-            case NETWORK:
-                return (OuterName[]) this.networkNames.values().toArray();
-            case VOLUME:
-                return (OuterName[]) this.volumeNames.values().toArray();
-            default:
-                return (OuterName[]) this.otherNames.values().toArray();
+        if (index == -1) {
+            return this.outerNames;
+        } else {
+          List<OuterName> oneItemList = new LinkedList<>();
+          oneItemList.add(this.outerNames.get(index));
+          return oneItemList;
         }
     }
 
-    @GetMapping(value = "/networkNames")
-    private Map<String, OuterName> getNetworkNames() {
-        return this.networkNames;
-    }
 
     @GetMapping(value = "/sites")
     private Interface getSites() {
@@ -191,31 +176,78 @@ public class Editor {
         if (localityIndex == -1) {
             return null;
         } else {
+            OuterName outerName;
             if (name.equals("")) {
-                return this.currentBuilder.addDescNameInnerInterface(localityIndex);
+                outerName = this.currentBuilder.addDescNameInnerInterface(localityIndex);
             } else {
-                return this.currentBuilder.addDescNameInnerInterface(localityIndex, name);
+                outerName = this.currentBuilder.addDescNameInnerInterface(localityIndex, name);
             }
+            this.outerNames.add(outerName);
+            return outerName;
         }
     }
 
+    /**
+     *
+     * @param localityIndex indice della località
+     * @param name nome del servizio scelto
+     * @param handleType tpo di Handle
+     * @param handleIndex indice dell'handle se in una lista
+     * @param portMode se specificato questo parametro, che deve essere 0 o 1,
+     *                 allora il valore di handleType deve essere inPort,
+     *                 handleIndex deve indicare un nodo nella lista {@code this.nodes},
+     *                 --> chiamata del tipo addDescNameOuterInterface(1, "ilMioServizio", "inPort", 0, 0)
+     * @return l'handle scelto
+     */
     @PostMapping(value = "/addDescNameOuterInterface")
     private InnerName addDescNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
                                                 @RequestParam(name = "name", defaultValue = "") String name,
-                                                @RequestParam(name = "handle", defaultValue = "-1") int handleIndex) {
+                                                @RequestParam(name = "handleType") String handleType,
+                                                @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex,
+                                                @RequestParam(name = "portMode", defaultValue = "-1") int portMode) {
+
+        InnerName innerName;
+
         if (localityIndex == -1) {
             return null;
+        } else if (portMode != -1 && handleType.equals(HANDLE_IN_PORT)) {
+            innerName = this.currentBuilder.addDescNameOuterInterface(localityIndex, name, this.nodes.get(handleIndex).getInPort(portMode).getEditable());
+            this.innerNames.add(innerName);
+            return innerName;
         } else {
             if (name.equals("") && handleIndex == -1) {     // Solo la località specificata
-                return this.currentBuilder.addDescNameOuterInterface(localityIndex);
+                innerName = this.currentBuilder.addDescNameOuterInterface(localityIndex);
             } else if (name.equals("")) {                   // Località e Handle specificati
-                return this.currentBuilder.addDescNameOuterInterface(localityIndex, handles.get(handleIndex));
+                innerName = this.currentBuilder.addDescNameOuterInterface(localityIndex, getHandle(handleType, handleIndex));
             } else if (handleIndex == -1) {                 // Località e Name specificati
-                return this.currentBuilder.addDescNameOuterInterface(localityIndex, name);
+                innerName = this.currentBuilder.addDescNameOuterInterface(localityIndex, name);
             } else {
-                return this.currentBuilder.addDescNameOuterInterface(localityIndex, name, handles.get(handleIndex));
+                innerName = this.currentBuilder.addDescNameOuterInterface(localityIndex, name, getHandle(handleType, handleIndex));
             }
+            this.innerNames.add(innerName);
+            return innerName;
         }
+    }
+
+    /**
+     *
+     * @param handleType uno tipo tra "outerName", "editableHandle", "inPort", "edge"
+     * @param handleIndex indice dell'handle nella lista selezionata
+     * @return l'istanza di handle selezionata
+     */
+    private Handle getHandle(String handleType, int handleIndex) {
+
+        switch (handleType) {
+            case HANDLE_OUTER_NAME:
+                return this.outerNames.get(handleIndex);
+            case HANDLE_EDITABLE_HANDLE:
+                return this.editableHandles.get(handleIndex);
+            case HANDLE_IN_PORT:
+                return this.inPorts.get(handleIndex);
+            default:
+                return this.edges.get(handleIndex);
+        }
+
     }
 
     @PostMapping(value = "/addAscNameOuterInterface")
@@ -231,22 +263,8 @@ public class Editor {
             } else {
                 outerName = this.currentBuilder.addAscNameOuterInterface(localityIndex, name);
             }
-            switch (nameType) {
-                case NETWORK:
-                    networkNames.put(name, outerName);
-                    System.out.format("Nome %s aggiunto alla mappa delle reti\n", name);
-                    break;
-                case VOLUME:
-                    volumeNames.put(name, outerName);
-                    System.out.format("Nome %s aggiunto alla mappa dei volumi\n", name);
-                    break;
-                default:
-                    otherNames.put(name, outerName);
-                    System.out.format("Nome %s aggiunto alla mappa dei nomi generici\n", name);
-                    break;
-            }
-
             this.outerNames.add(outerName);
+            System.out.format("Nome '%s' aggiunto alla lista degli outerName\n", name);
             return outerName;
         }
     }
@@ -324,7 +342,7 @@ public class Editor {
 
         resultNode = this.currentBuilder.addNode(controlName, parentNode);
         this.nodes.add(resultNode);
-
+        System.out.println("Numero di nodi nella lista 'nodes': " + this.nodes.size());
         return resultNode;
 
     }
@@ -342,7 +360,64 @@ public class Editor {
             }
 
         }
+    }
 
+    @GetMapping(value = "showNodes")
+    private String showNodes(@RequestParam(value = "nodeIndex", defaultValue = "-1") int nodeIndex) {
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        if (nodeIndex != -1 ) {
+            addNodeDescription(stringBuilder, nodeIndex);
+        } else {
+            for (int i=0; i<this.nodes.size(); i++) {
+                addNodeDescription(stringBuilder, i);
+            }
+        }
+
+        return stringBuilder.toString() ;
+    }
+
+    @GetMapping(value = "showOuterNames")
+    private String showOuterNames(@RequestParam(value = "index", defaultValue = "-1") int index) {
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        if (index != -1 ) {
+            addNodeDescription(stringBuilder, index);
+        } else {
+            for (int i=0; i<this.outerNames.size(); i++) {
+                addOuterNameDescription(stringBuilder, i);
+            }
+        }
+
+        return stringBuilder.toString() ;
+    }
+
+    private void addOuterNameDescription(StringBuilder stringBuilder, int i) {
+        OuterName outerName = this.outerNames.get(i);
+        stringBuilder.append("OuterName ").append(i).append(") ").append(outerName.toString()).append(", ");
+    }
+
+    /**
+     *
+     * @param stringBuilder in cui salvare le informazioni sul nodo considerato
+     * @param i indice del nodo nella lista interna all'editor
+     */
+    private void addNodeDescription(StringBuilder stringBuilder, int i) {
+        Node currentNode = this.nodes.get(i);
+        stringBuilder.append("Nodo ").append(i).append(" ");
+        stringBuilder.append(" nome: ").append(currentNode.getName());
+        stringBuilder.append("- Porte in uscita [ ");
+        for (OutPort outPort : currentNode.getOutPorts()) {
+            stringBuilder.append(outPort.toString()).append(", ");
+        }
+        stringBuilder.append("], ");
+        stringBuilder.append("- Porte in entrata [ ");
+        for (InPort inPort : currentNode.getInPorts()) {
+            stringBuilder.append(inPort.toString()).append(", ");
+        }
+        stringBuilder.append("], ");
     }
 
     @PostMapping(value = "setPortMode")
@@ -372,10 +447,15 @@ public class Editor {
                                      @RequestParam(name = "arityOut") int arityOut,
                                      @RequestParam(name = "active") boolean active) {
 
+        System.out.format("Verifica della validità delle arietà...");
         if (arityIn < 0 || arityOut < 0 || arityIn > 2 || arityOut > 2) {
+            System.out.format("Errore - Una o più arietà non valide\n");
             return "L'arietà di almeno una porta non è valida";
         } else {
+            System.out.format("OK!\n");
+            System.out.format("Aggiunta del directedControl '%s'...", controlName);
             bigraphControls.add(new DirectedControl(controlName, active, arityOut, arityIn));
+            System.out.format("OK!\n");
             return String.format("Aggiunto il controllo '%s' (attivo: %b) con arityIn %d e arityOut %d", controlName, active, arityIn, arityOut);
         }
     }
@@ -387,7 +467,103 @@ public class Editor {
 
     @GetMapping(value = "directedSignatures")
     private String createDirectedSignature() {
+        System.out.format("Creazione della directedSignature...");
         this.currentSignature = new DirectedSignature(bigraphControls);
+        System.out.format("OK!\n");
         return this.currentSignature.toString();
+    }
+
+    @GetMapping(value = "services")
+    private List<String> gerServices() {return this.services; }
+
+    /**
+     *
+     * @param nodeIndex indice del nodo a cui collegare l'outerName
+     * @param outerNameIndex indice dell'outerName da collegare al nodo
+     * @param linkMode modalità del collegamento che può essere 0 (per READ MODE) o 1 (per WRITE MODE)
+     * @return un messaggio di riassunto del collegamento se quest'ultimo è andato a buon fine
+     */
+    @PostMapping(value = "linkAndSetMode")
+    private String linkAndSetMode(@RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex,
+                                  @RequestParam(name = "outerNameIndex", defaultValue = "-1") int outerNameIndex,
+                                  @RequestParam(name = "linkMode") int linkMode) {
+        Node selectedNode = null;
+        if (nodeIndex > -1 && nodeIndex < this.nodes.size()) {
+            selectedNode = this.nodes.get(nodeIndex);
+        } else {
+            return "Indice del nodo non valido";
+        }
+
+        OuterName selectedOuterName = null;
+        if (outerNameIndex > -1 && outerNameIndex < this.outerNames.size()) {
+            selectedOuterName = this.outerNames.get(outerNameIndex);
+        } else {
+            return "indice dell'outerName non valido";
+        }
+
+        if (linkMode < 0 || linkMode > 1) {
+            return "Modalità di collegamento del nome non valida. Modalità disponibili: 0 per lettura, 1 per scrittura";
+        }
+
+        selectedNode.getOutPort(linkMode).getEditable().setHandle(selectedOuterName.getEditable()); // link the net to the node in read mode
+        return String.format("OuterName '%s' collegato al nodo '%s' in modalità %s",  selectedOuterName.toString(), selectedNode.toString(),
+                linkMode == 0 ? "lettura" : "scrittura");
+    }
+
+    @GetMapping(value = "innerNames")
+    private List<InnerName> getInnerNames(@RequestParam(name = "index", defaultValue = "-1") int index) {
+
+        if (index == -1) {
+            return this.innerNames;
+        } else {
+            List<InnerName> oneItemList = new LinkedList<>();
+            oneItemList.add(this.innerNames.get(index));
+            return oneItemList;
+        }
+    }
+
+    /**
+     *
+     * @param nodeIndex indice del nodo a cui collegare l'handle
+     * @param portMode modalità con cui collegare l'handle al nodo: 0 per READ_MODE, 1 per WRITE_MODE
+     * @param handleType tipo di handle nell'insieme {"outerName", "editableHandle", "inPort", "edge"}
+     * @param handleIndex indice dell'handle nella sua relativa lista
+     */
+    @GetMapping(value = "/linkNameToNode")
+    private void linkNameToNode(@RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex,
+                        @RequestParam(name = "portMode", defaultValue = "-1") int portMode,
+                        @RequestParam(name = "handleType") String handleType,
+                        @RequestParam(name = "handleIndex") int handleIndex) {
+
+        if (portMode < 0 || portMode > 1) {
+            System.out.println("Modalità di collegamento non valida. Scegliere 0 per READ o 1 per WRITE.");
+        } else {
+            Handle selectedHandle = null;
+            switch (handleType) {
+                // * @param handleType uno tipo tra "outerName", "editableHandle", "inPort", "edge"
+                case HANDLE_OUTER_NAME:
+                    selectedHandle = this.outerNames.get(handleIndex).getEditable();
+                    break;
+                case HANDLE_IN_PORT:
+                    selectedHandle = this.inPorts.get(handleIndex).getEditable();
+                    break;
+                case HANDLE_EDITABLE_HANDLE:
+                    selectedHandle = this.editableHandles.get(handleIndex);
+                    break;
+                case HANDLE_EDGE:
+                    selectedHandle = this.edges.get(handleIndex).getEditable();
+                    break;
+                default:
+                    return;
+            }
+
+            if (nodeIndex == -1) {
+                System.out.println("Indice del nodo non valido");
+            } else {
+                Node selectedNode = this.nodes.get(nodeIndex);
+                selectedNode.getOutPort(portMode).getEditable().setHandle(selectedHandle.getEditable());
+                System.out.format("Collegato '%s' al nodo %s!\n", selectedHandle.toString(), selectedNode.toString());
+            }
+        }
     }
 }

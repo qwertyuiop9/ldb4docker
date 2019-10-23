@@ -4,7 +4,7 @@ import com.andreavendrame.ldb4docker.myjlibbig.attachedProperties.Replicable;
 
 import java.util.Collection;
 
-interface EditableHandle extends Handle, Replicable, EditableOwned {
+public interface EditableHandle extends Handle, Replicable, EditableOwned {
     /**
      * Get the set of control's ports and innernames of an handle
      *
