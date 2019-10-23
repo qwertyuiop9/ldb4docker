@@ -21,28 +21,46 @@ public class Editor {
     @Autowired
     private RestTemplate restTemplate;
 
-    @GetMapping(value = "/start-editing")
+    @PostMapping(value = "directedControls")
+    private String addDirectedControl(@RequestParam(name = "controlName") String controlName,
+                                      @RequestParam(name = "arityIn") int arityIn,
+                                      @RequestParam(name = "arityOut") int arityOut,
+                                      @RequestParam(name = "active") boolean active) {
+
+        System.out.format("Verifica della validità delle arietà...");
+        if (arityIn < 0 || arityOut < 0 || arityIn > 2 || arityOut > 2) {
+            System.out.format("Errore - Una o più arietà non valide\n");
+            return "L'arietà di almeno una porta non è valida";
+        } else {
+            System.out.format("OK!\n");
+            System.out.format("Aggiunta del directedControl '%s'...", controlName);
+            bigraphControls.add(new DirectedControl(controlName, active, arityOut, arityIn));
+            System.out.format("OK!\n");
+            return String.format("Aggiunto il controllo '%s' (attivo: %b) con arityIn %d e arityOut %d", controlName, active, arityIn, arityOut);
+        }
+    }
+
+    @GetMapping(value = "directedControls")
+    private List<DirectedControl> getBigraphControls() {
+        return bigraphControls;
+    }
+
+    @PostMapping(value = "directedSignatures")
+    private String createDirectedSignature() {
+        System.out.format("Creazione della directedSignature...");
+        currentSignature = new DirectedSignature(bigraphControls);
+        System.out.format("OK!\n");
+        return currentSignature.toString();
+    }
+
+    @PostMapping(value = "/start-editing")
     public DirectedBigraphBuilder createBuilder() {
 
         System.out.format("Creo il builder...");
         currentBuilder = new DirectedBigraphBuilder(currentSignature);
         System.out.println("OK!\n");
-
         return currentBuilder;
 
-    }
-
-    /**
-     * @param position posizione della radice del bigrafo nella lista delle radici disponibili
-     * @return l'intera lista di radici del builder se {@param position} è -1; la root in posizione {@param position} altrimenti
-     */
-    @GetMapping(value = "/roots")
-    private Object getRoot(@RequestParam(name = "position", defaultValue = "-1") int position) {
-        if (position == -1) {
-            return currentBuilder.getRoots();
-        } else {
-            return currentBuilder.getRoots().get(position);
-        }
     }
 
     /**
@@ -61,6 +79,19 @@ public class Editor {
             root = currentBuilder.addRoot(locality);
         }
         return root;
+    }
+
+    /**
+     * @param index posizione della radice del bigrafo nella lista delle radici disponibili
+     * @return l'intera lista di radici del builder se {@param index} è -1; la root in posizione {@param index} altrimenti
+     */
+    @GetMapping(value = "/roots")
+    private Object getRoot(@RequestParam(name = "index", defaultValue = "-1") int index) {
+        if (index == -1) {
+            return currentBuilder.getRoots();
+        } else {
+            return currentBuilder.getRoots().get(index);
+        }
     }
 
     @GetMapping(value = "/signatures")
@@ -89,7 +120,6 @@ public class Editor {
           return oneItemList;
         }
     }
-
 
     @GetMapping(value = "/sites")
     private Interface getSites() {
@@ -188,8 +218,7 @@ public class Editor {
 
     @PostMapping(value = "/addAscNameOuterInterface")
     private OuterName addAscNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
-                                               @RequestParam(name = "name", defaultValue = "") String name,
-                                               @RequestParam(name = "nameType", defaultValue = "other") String nameType) {
+                                               @RequestParam(name = "name", defaultValue = "") String name) {
         if (localityIndex == -1) {
             return null;
         } else {
@@ -208,18 +237,19 @@ public class Editor {
     @PostMapping(value = "/addAscNameInnerInterface")
     private InnerName addAscNameInnerInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
                                                @RequestParam(name = "name", defaultValue = "") String name,
-                                               @RequestParam(name = "handle", defaultValue = "-1") int handleIndex) {
+                                               @RequestParam(name = "handleType", defaultValue = "") String handleType,
+                                               @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex) {
         if (localityIndex == -1) {
             return null;
         } else {
             if (name.equals("") && handleIndex == -1) {     // Solo la località specificata
                 return currentBuilder.addAscNameInnerInterface(localityIndex);
             } else if (name.equals("")) {                   // Località e Handle specificati
-                return currentBuilder.addAscNameInnerInterface(localityIndex, handles.get(handleIndex));
+                return currentBuilder.addAscNameInnerInterface(localityIndex, getHandle(handleType, handleIndex));
             } else if (handleIndex == -1) {                 // Località e Name specificati
                 return currentBuilder.addAscNameInnerInterface(localityIndex, name);
             } else {
-                return currentBuilder.addAscNameInnerInterface(localityIndex, name, handles.get(handleIndex));
+                return currentBuilder.addAscNameInnerInterface(localityIndex, name, getHandle(handleType, handleIndex));
             }
         }
     }
@@ -318,38 +348,6 @@ public class Editor {
         } else {
             node.getOutPort(WRITE_MODE).getEditable().setHandle(handle.getEditable());
         }
-    }
-
-    @PostMapping(value = "directedControls")
-    private String addBigraphControl(@RequestParam(name = "controlName") String controlName,
-                                     @RequestParam(name = "arityIn") int arityIn,
-                                     @RequestParam(name = "arityOut") int arityOut,
-                                     @RequestParam(name = "active") boolean active) {
-
-        System.out.format("Verifica della validità delle arietà...");
-        if (arityIn < 0 || arityOut < 0 || arityIn > 2 || arityOut > 2) {
-            System.out.format("Errore - Una o più arietà non valide\n");
-            return "L'arietà di almeno una porta non è valida";
-        } else {
-            System.out.format("OK!\n");
-            System.out.format("Aggiunta del directedControl '%s'...", controlName);
-            bigraphControls.add(new DirectedControl(controlName, active, arityOut, arityIn));
-            System.out.format("OK!\n");
-            return String.format("Aggiunto il controllo '%s' (attivo: %b) con arityIn %d e arityOut %d", controlName, active, arityIn, arityOut);
-        }
-    }
-
-    @GetMapping(value = "directedControls")
-    private List<DirectedControl> getBigraphControls() {
-        return bigraphControls;
-    }
-
-    @GetMapping(value = "directedSignatures")
-    private String createDirectedSignature() {
-        System.out.format("Creazione della directedSignature...");
-        currentSignature = new DirectedSignature(bigraphControls);
-        System.out.format("OK!\n");
-        return currentSignature.toString();
     }
 
     @GetMapping(value = "services")
