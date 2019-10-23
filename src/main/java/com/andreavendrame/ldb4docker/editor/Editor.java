@@ -94,48 +94,6 @@ public class Editor {
         }
     }
 
-    @GetMapping(value = "/signatures")
-    private DirectedSignature getSignature() {
-        return currentBuilder.getSignature();
-    }
-
-    @GetMapping(value = "/innerInterfaces")
-    private Interface getInnerInterface() {
-        return currentBuilder.getInnerInterface();
-    }
-
-    @GetMapping(value = "/outerInterfaces")
-    private Interface getOuterInterface() {
-        return currentBuilder.getOuterInterface();
-    }
-
-    @GetMapping(value = "/outerNames")
-    private List<OuterName> getOuterNames(@RequestParam(name = "index", defaultValue = "-1") int index) {
-
-        if (index == -1) {
-            return outerNames;
-        } else {
-          List<OuterName> oneItemList = new LinkedList<>();
-          oneItemList.add(outerNames.get(index));
-          return oneItemList;
-        }
-    }
-
-    @GetMapping(value = "/sites")
-    private Interface getSites() {
-        return (Interface) currentBuilder.getSites();
-    }
-
-    @GetMapping(value = "/edges")
-    private Collection<? extends Edge> getEdges() {
-        return currentBuilder.getEdges();
-    }
-
-    @GetMapping(value = "/handles")
-    private List<Handle> getHandles() {
-        return handles;
-    }
-
     @PostMapping(value = "/addDescNameInnerInterface")
     private OuterName addDescNameInnerInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
                                                 @RequestParam(name = "name", defaultValue = "") String name) {
@@ -195,27 +153,6 @@ public class Editor {
         }
     }
 
-    /**
-     *
-     * @param handleType uno tipo tra "outerName", "editableHandle", "inPort", "edge"
-     * @param handleIndex indice dell'handle nella lista selezionata
-     * @return l'istanza di handle selezionata
-     */
-    private Handle getHandle(String handleType, int handleIndex) {
-
-        switch (handleType) {
-            case HANDLE_OUTER_NAME:
-                return outerNames.get(handleIndex);
-            case HANDLE_EDITABLE_HANDLE:
-                return editableHandles.get(handleIndex);
-            case HANDLE_IN_PORT:
-                return inPorts.get(handleIndex);
-            default:
-                return edges.get(handleIndex);
-        }
-
-    }
-
     @PostMapping(value = "/addAscNameOuterInterface")
     private OuterName addAscNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
                                                @RequestParam(name = "name", defaultValue = "") String name) {
@@ -254,29 +191,66 @@ public class Editor {
         }
     }
 
-    @PostMapping(value = "/sites")
-    private Site addSite(@RequestParam(name = "parentType") String parentType,
-                         @RequestParam(name = "parentIndex") int parentIndex) {
+    @GetMapping(value = "/signatures")
+    private DirectedSignature getSignature() {
+        return currentBuilder.getSignature();
+    }
 
-        Site resultSite = null;
-        Parent parentNode = null;
+    @GetMapping(value = "/outerNames")
+    private List<OuterName> getOuterNames(@RequestParam(name = "index", defaultValue = "-1") int index) {
 
-        switch (parentType) {
-
-            case PARENT_NODE:
-                parentNode = nodes.get(parentIndex);
-                break;
-            case PARENT_ROOT:
-                parentNode = currentBuilder.getRoots().get(parentIndex);
-                break;
-            case PARENT_EDITABLE_PARENT:
-                parentNode = editableParents.get(parentIndex);
-                break;
+        if (index == -1) {
+            return outerNames;
+        } else {
+            List<OuterName> oneItemList = new LinkedList<>();
+            oneItemList.add(outerNames.get(index));
+            return oneItemList;
         }
+    }
 
-        resultSite = currentBuilder.addSite(parentNode);
-        sites.add(resultSite);
-        return resultSite;
+    @GetMapping(value = "innerNames")
+    private List<InnerName> getInnerNames(@RequestParam(name = "index", defaultValue = "-1") int index) {
+
+        if (index == -1) {
+            return innerNames;
+        } else {
+            List<InnerName> oneItemList = new LinkedList<>();
+            oneItemList.add(innerNames.get(index));
+            return oneItemList;
+        }
+    }
+
+    @GetMapping(value = "/sites")
+    private List<Site> getSites(@RequestParam(name = "index", defaultValue = "-1") int index) {
+        if (index == -1) {
+            return sites;
+        } else {
+            List<Site> oneItemList = new LinkedList<>();
+            oneItemList.add(sites.get(index));
+            return oneItemList;
+        }
+    }
+
+    @GetMapping(value = "/edges")
+    private List<Edge> getEdges(@RequestParam(name = "index", defaultValue = "-1") int index) {
+        if (index == -1) {
+            return edges;
+        } else {
+            List<Edge> oneItemList = new LinkedList<>();
+            oneItemList.add(edges.get(index));
+            return oneItemList;
+        }
+    }
+
+    @GetMapping(value = "/nodes")
+    private List<Node> getNodes(@RequestParam(value = "index", defaultValue = "-1") int index) {
+        if (index == -1) {
+            return nodes;
+        } else {
+            List<Node> oneItemList = new LinkedList<>();
+            oneItemList.add(nodes.get(index));
+            return oneItemList;
+        }
     }
 
     /**
@@ -313,26 +287,73 @@ public class Editor {
 
     }
 
-    @GetMapping(value = "/nodes")
-    private Object getNodes(@RequestParam(value = "nodeIndex", defaultValue = "-1") int nodeIndex) {
-        if (nodeIndex == -1) {
-            return currentBuilder.getNodes().toArray();
-        } else {
-            Node[] nodes = (Node[]) currentBuilder.getNodes().toArray();
-            if (nodeIndex < nodes.length) {
-                return nodes[nodeIndex];
-            } else {
-                return "Node index not valid";
-            }
+    @PostMapping(value = "/sites")
+    private Site addSite(@RequestParam(name = "parentType") String parentType,
+                         @RequestParam(name = "parentIndex") int parentIndex) {
 
+        Site resultSite = null;
+        Parent parentNode = null;
+
+        switch (parentType) {
+
+            case PARENT_NODE:
+                parentNode = nodes.get(parentIndex);
+                break;
+            case PARENT_ROOT:
+                parentNode = currentBuilder.getRoots().get(parentIndex);
+                break;
+            case PARENT_EDITABLE_PARENT:
+                parentNode = editableParents.get(parentIndex);
+                break;
         }
+
+        resultSite = currentBuilder.addSite(parentNode);
+        sites.add(resultSite);
+        return resultSite;
     }
 
 
+
+
+    @GetMapping(value = "/innerInterfaces")
+    private Interface getInnerInterface() {
+        return currentBuilder.getInnerInterface();
+    }
+
+    @GetMapping(value = "/outerInterfaces")
+    private Interface getOuterInterface() {
+        return currentBuilder.getOuterInterface();
+    }
+
+
+    /**
+     *
+     * @param handleType uno tipo tra "outerName", "editableHandle", "inPort", "edge"
+     * @param handleIndex indice dell'handle nella lista selezionata
+     * @return l'istanza di handle selezionata
+     */
+    private Handle getHandle(String handleType, int handleIndex) {
+
+        switch (handleType) {
+            case HANDLE_OUTER_NAME:
+                return outerNames.get(handleIndex);
+            case HANDLE_EDITABLE_HANDLE:
+                return editableHandles.get(handleIndex);
+            case HANDLE_IN_PORT:
+                return inPorts.get(handleIndex);
+            default:
+                return edges.get(handleIndex);
+        }
+
+    }
+
+
+
     @PostMapping(value = "setPortMode")
-    private void setPortMode(@RequestParam(name = "mode", defaultValue = "read") String portAttachMode,
-                      @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex,
-                      @RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex) {
+    private void setPortMode(@RequestParam(name = "portMode", defaultValue = "-1") int portMode,
+                             @RequestParam(name = "handleType") String handleType,
+                             @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex,
+                             @RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex) {
 
         if (handleIndex == -1) {
             System.out.println("Indice del parametro 'Handle' non valido");
@@ -341,9 +362,11 @@ public class Editor {
         }
 
         Node node = nodes.get(nodeIndex);
-        Handle handle = handles.get(handleIndex);
+        Handle handle = getHandle(handleType, handleIndex);
 
-        if (portAttachMode.equals("read")) {
+        if (portMode == -1) {
+            System.out.println("Modalità della porta non valida");
+        } else if (portMode == READ_MODE) {
             node.getOutPort(READ_MODE).getEditable().setHandle(handle.getEditable());
         } else {
             node.getOutPort(WRITE_MODE).getEditable().setHandle(handle.getEditable());
@@ -385,18 +408,6 @@ public class Editor {
         selectedNode.getOutPort(linkMode).getEditable().setHandle(selectedOuterName.getEditable()); // link the net to the node in read mode
         return String.format("OuterName '%s' collegato al nodo '%s' in modalità %s",  selectedOuterName.toString(), selectedNode.toString(),
                 linkMode == 0 ? "lettura" : "scrittura");
-    }
-
-    @GetMapping(value = "innerNames")
-    private List<InnerName> getInnerNames(@RequestParam(name = "index", defaultValue = "-1") int index) {
-
-        if (index == -1) {
-            return innerNames;
-        } else {
-            List<InnerName> oneItemList = new LinkedList<>();
-            oneItemList.add(innerNames.get(index));
-            return oneItemList;
-        }
     }
 
     /**

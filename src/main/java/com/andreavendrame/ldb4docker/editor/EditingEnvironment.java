@@ -24,7 +24,6 @@ public class EditingEnvironment {
     public static DirectedBigraphBuilder currentBuilder;
     public static DirectedSignature currentSignature;
 
-    public static final List<Handle> handles = new LinkedList<>();
     public static final List<OuterName> outerNames = new LinkedList<>();
     public static final List<InnerName> innerNames = new LinkedList<>();
     public static final List<Site> sites = new LinkedList<>();
