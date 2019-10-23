@@ -14,8 +14,8 @@ import java.util.*;
 public class BigraphImportController {
 
     private static final String DEFAULT_NETWORK_NAME = "default_network";
-    static final int READ_MODE = 0;
-    static final int WRITE_MODE = 1;
+    public static final int READ_MODE = 0;
+    public static final int WRITE_MODE = 1;
 
 
     @GetMapping(value = "/importBigraph/{bigraphPath}")
@@ -170,7 +170,7 @@ public class BigraphImportController {
 
                         volumeNode.getOutPort(READ_MODE).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in read mode
                         if (!(vs.length == 3 && vs[2].equals("ro"))) {
-                            volumeNode.getOutPort(1).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in write mode
+                            volumeNode.getOutPort(WRITE_MODE).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in write mode
                         }
                     } else {
                         System.out.println("Service mounts volume at path \"" + vs[0] + "\", adding it to the interface.");
