@@ -34,6 +34,7 @@ public class EditingEnvironment {
     public static final List<String> services = new LinkedList<>();
     public static final List<EditableHandle> editableHandles = new LinkedList<>();
     public static final List<InPort> inPorts = new LinkedList<>();
+    public static final List<Root> roots = new LinkedList<>();
 
 
 }

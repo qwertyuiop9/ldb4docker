@@ -6,8 +6,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.concurrent.atomic.AtomicInteger;
-
 import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.outerNames;
 
 @RestController
@@ -61,28 +59,16 @@ public class EditorInspector {
         StringBuilder stringBuilder = new StringBuilder();
 
         if (index != -1) {
-            EditableRoot editableRoot = EditingEnvironment.currentBuilder.getRoots().get(index).getEditable();
-            stringBuilder.append("Radice ").append(editableRoot.toString()).append(" --> ");
-            int childIndex = 0;
-            editableRoot.getEditableChildren().forEach(editableChild -> {
-                stringBuilder.append("Child ").append(childIndex).append(" : ");
-                stringBuilder.append(editableChild.toString());
-                stringBuilder.append(", ");
-            });
+            EditableRoot editableRoot = EditingEnvironment.roots.get(index).getEditable();
+            stringBuilder.append("'").append(editableRoot.toString()).append("'").append(" --> ");
+            addChildrenInformation(stringBuilder, editableRoot);
         } else {
-            for (Root root : EditingEnvironment.currentBuilder.getRoots()) {
+            for (Root root : EditingEnvironment.roots) {
                 EditableRoot editableRoot = root.getEditable();
-                stringBuilder.append(editableRoot.toString());
+                stringBuilder.append("'").append(editableRoot.toString()).append("'");
                 stringBuilder.append(" - Children: [");
-                AtomicInteger childIndex = new AtomicInteger();
-                editableRoot.getEditableChildren().forEach(editableChild -> {
-                    stringBuilder.append("Child ").append(childIndex.get()).append(" : ");
-                    stringBuilder.append(editableChild.toString());
-                    stringBuilder.append(", ");
-                    childIndex.getAndIncrement();
-                });
-                stringBuilder.append("]");
-                stringBuilder.append("\n");
+                addChildrenInformation(stringBuilder, editableRoot);
+                stringBuilder.append("] ");
             }
         }
 
@@ -110,4 +96,10 @@ public class EditorInspector {
         stringBuilder.append("OuterName ").append(i).append(") ").append(outerName.toString()).append(", ");
     }
 
+    private static void addChildrenInformation(StringBuilder stringBuilder, EditableRoot editableRoot) {
+        editableRoot.getEditableChildren().forEach(editableChild -> {
+            stringBuilder.append("'").append(editableChild.toString()).append("'");
+            stringBuilder.append(", ");
+        });
+    }
 }

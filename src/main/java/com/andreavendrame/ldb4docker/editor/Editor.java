@@ -18,10 +18,12 @@ import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.*;
 @RequestMapping(value = "/editor")
 public class Editor {
 
+    private static final String INVALID_TYPE = "noType";
+
     @Autowired
     private RestTemplate restTemplate;
 
-    @PostMapping(value = "directedControls")
+    @PostMapping(value = "/directedControls")
     private String addDirectedControl(@RequestParam(name = "controlName") String controlName,
                                       @RequestParam(name = "arityIn") int arityIn,
                                       @RequestParam(name = "arityOut") int arityOut,
@@ -40,12 +42,12 @@ public class Editor {
         }
     }
 
-    @GetMapping(value = "directedControls")
+    @GetMapping(value = "/directedControls")
     private List<DirectedControl> getBigraphControls() {
         return bigraphControls;
     }
 
-    @PostMapping(value = "directedSignatures")
+    @PostMapping(value = "/directedSignatures")
     private String createDirectedSignature() {
         System.out.format("Creazione della directedSignature...");
         currentSignature = new DirectedSignature(bigraphControls);
@@ -74,9 +76,11 @@ public class Editor {
         if (locality == -1) {
             // Aggiungo una radice senza località
             root = currentBuilder.addRoot();
+            roots.add(root);
         } else {
             // Aggiungo una radice con località
             root = currentBuilder.addRoot(locality);
+            roots.add(locality, root);
         }
         return root;
     }
@@ -112,15 +116,14 @@ public class Editor {
     }
 
     /**
-     *
      * @param localityIndex indice della località
-     * @param name nome del servizio scelto
-     * @param handleType tpo di Handle
-     * @param handleIndex indice dell'handle se in una lista
-     * @param portMode se specificato questo parametro, che deve essere 0 o 1,
-     *                 allora il valore di handleType deve essere inPort,
-     *                 handleIndex deve indicare un nodo nella lista {@code nodes},
-     *                 --> chiamata del tipo addDescNameOuterInterface(1, "ilMioServizio", "inPort", 0, 0)
+     * @param name          nome del servizio scelto
+     * @param handleType    tpo di Handle
+     * @param handleIndex   indice dell'handle se in una lista
+     * @param portMode      se specificato questo parametro, che deve essere 0 o 1,
+     *                      allora il valore di handleType deve essere inPort,
+     *                      handleIndex deve indicare un nodo nella lista {@code nodes},
+     *                      --> chiamata del tipo addDescNameOuterInterface(1, "ilMioServizio", "inPort", 0, 0)
      * @return l'handle scelto
      */
     @PostMapping(value = "/addDescNameOuterInterface")
@@ -254,35 +257,67 @@ public class Editor {
     }
 
     /**
-     * @param controlName nome del controllo da inserire
-     * @param parentType  uno tra "root", "editableParent", "node"
-     * @param parentIndex indice del parent nella relativa lista
-     * @return il nodo che risulta dall'inserimento
+     * @param controlName name of the control to insert
+     * @param parentType  one between "root", "editableParent", "node"
+     * @param parentIndex index of the parent to get from the related list
+     * @param parentName name of the parent to get from the related list
+     *                   Method notes:
+     *                   - The parameter "controlName" must be always setted
+     *                   Method uses - Parameter combinations:
+     *                   1) "parentType" + "parentIndex"
+     *                   2) "parentType" + "parentName"
+     *                   3) "name" only
+     * @return the insertion resulting node
      */
     @PostMapping(value = "/nodes")
     private Node addNode(@RequestParam(name = "controlName") String controlName,
-                         @RequestParam(name = "parentType") String parentType,
-                         @RequestParam(name = "parentIndex") int parentIndex) {
+                         @RequestParam(name = "parentType", defaultValue = INVALID_TYPE) String parentType,
+                         @RequestParam(name = "parentIndex", defaultValue = "-1") int parentIndex,
+                         @RequestParam(name = "parentName", defaultValue = "") String parentName) {
 
-        Node resultNode = null;
-        Parent parentNode = null;
+        Node resultNode;
+        Parent parent;
+        System.out.format("Parent type '%s', ", parentType);
 
-        switch (parentType) {
-
-            case PARENT_NODE:
-                parentNode = nodes.get(parentIndex);
-                break;
-            case PARENT_ROOT:
-                parentNode = currentBuilder.getRoots().get(parentIndex);
-                break;
-            case PARENT_EDITABLE_PARENT:
-                parentNode = editableParents.get(parentIndex);
-                break;
+        if (parentType.equals(INVALID_TYPE)) {
+            parent = getParentByName(parentName);
+        } else {
+            if (parentIndex != -1) {
+                switch (parentType) {
+                    case PARENT_NODE:
+                        parent = nodes.get(parentIndex);
+                        break;
+                    case PARENT_ROOT:
+                        parent = roots.get(parentIndex);
+                        break;
+                    case PARENT_EDITABLE_PARENT:
+                        parent = editableParents.get(parentIndex);
+                        break;
+                    default:
+                        parent = null;
+                        break;
+                }
+            } else {
+                switch (parentType) {
+                    case PARENT_NODE:
+                        parent = getNodeByName(parentName);
+                        break;
+                    case PARENT_ROOT:
+                        parent = getRootByName(parentName);
+                        break;
+                    case PARENT_EDITABLE_PARENT:
+                        parent = getEditableParentByName(parentName);
+                        break;
+                    default:
+                        parent = null;
+                        break;
+                }
+            }
         }
 
-        resultNode = currentBuilder.addNode(controlName, parentNode);
+        resultNode = currentBuilder.addNode(controlName, parent);
         nodes.add(resultNode);
-        System.out.println("Numero di nodi nella lista 'nodes': " + nodes.size());
+        System.out.println("Number of nodes in the list: " + nodes.size());
         return resultNode;
 
     }
@@ -312,7 +347,31 @@ public class Editor {
         return resultSite;
     }
 
+    /**
+     * @param nodeIndex   indice del nodo a cui collegare l'handle
+     * @param portMode    modalità con cui collegare l'handle al nodo: 0 per READ_MODE, 1 per WRITE_MODE
+     * @param handleType  tipo di handle nell'insieme {"outerName", "editableHandle", "inPort", "edge"}
+     * @param handleIndex indice dell'handle nella sua relativa lista
+     */
+    @PostMapping(value = "/linkNameToNode")
+    private void linkNameToNode(@RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex,
+                                @RequestParam(name = "portMode", defaultValue = "-1") int portMode,
+                                @RequestParam(name = "handleType") String handleType,
+                                @RequestParam(name = "handleIndex") int handleIndex) {
 
+        if (portMode < 0 || portMode > 1) {
+            System.out.println("Modalità di collegamento non valida. Scegliere 0 per READ o 1 per WRITE.");
+        } else {
+            Handle selectedHandle = getHandle(handleType, handleIndex);
+            if (nodeIndex == -1) {
+                System.out.println("Indice del nodo non valido");
+            } else {
+                Node selectedNode = nodes.get(nodeIndex);
+                selectedNode.getOutPort(portMode).getEditable().setHandle(selectedHandle.getEditable());
+                System.out.format("Collegato '%s' al nodo %s!\n", selectedHandle.toString(), selectedNode.toString());
+            }
+        }
+    }
 
 
     @GetMapping(value = "/innerInterfaces")
@@ -326,9 +385,24 @@ public class Editor {
     }
 
 
+    @GetMapping(value = "services")
+    private List<String> gerServices(@RequestParam(value = "index", defaultValue = "-1") int index) {
+        if (index == -1) {
+            return services;
+        } else {
+            List<String> oneItemList = new LinkedList<>();
+            oneItemList.add(services.get(index));
+            return oneItemList;
+        }
+    }
+
+    @GetMapping(value = "makeBigraph")
+    private DirectedBigraph makeBigraph(@RequestParam(name = "closeBigraph", defaultValue = "false") boolean closeBigraph) {
+        return currentBuilder.makeBigraph(closeBigraph);
+    }
+
     /**
-     *
-     * @param handleType uno tipo tra "outerName", "editableHandle", "inPort", "edge"
+     * @param handleType  uno tipo tra "outerName", "editableHandle", "inPort", "edge"
      * @param handleIndex indice dell'handle nella lista selezionata
      * @return l'istanza di handle selezionata
      */
@@ -347,115 +421,77 @@ public class Editor {
 
     }
 
-
-
-    @PostMapping(value = "setPortMode")
-    private void setPortMode(@RequestParam(name = "portMode", defaultValue = "-1") int portMode,
-                             @RequestParam(name = "handleType") String handleType,
-                             @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex,
-                             @RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex) {
-
-        if (handleIndex == -1) {
-            System.out.println("Indice del parametro 'Handle' non valido");
-        } else if (nodeIndex == -1) {
-            System.out.println("Indice del parametro 'Node' non valido");
-        }
-
-        Node node = nodes.get(nodeIndex);
-        Handle handle = getHandle(handleType, handleIndex);
-
-        if (portMode == -1) {
-            System.out.println("Modalità della porta non valida");
-        } else if (portMode == READ_MODE) {
-            node.getOutPort(READ_MODE).getEditable().setHandle(handle.getEditable());
-        } else {
-            node.getOutPort(WRITE_MODE).getEditable().setHandle(handle.getEditable());
-        }
-    }
-
-    @GetMapping(value = "services")
-    private List<String> gerServices() {return services; }
-
     /**
      *
-     * @param nodeIndex indice del nodo a cui collegare l'outerName
-     * @param outerNameIndex indice dell'outerName da collegare al nodo
-     * @param linkMode modalità del collegamento che può essere 0 (per READ MODE) o 1 (per WRITE MODE)
-     * @return un messaggio di riassunto del collegamento se quest'ultimo è andato a buon fine
+     * @param rootName name of the root to get. Every root name must be unique for the considered builder
+     * @return the root searched if it is present in the list, null else
      */
-    @PostMapping(value = "linkAndSetMode")
-    private String linkAndSetMode(@RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex,
-                                  @RequestParam(name = "outerNameIndex", defaultValue = "-1") int outerNameIndex,
-                                  @RequestParam(name = "linkMode") int linkMode) {
-        Node selectedNode = null;
-        if (nodeIndex > -1 && nodeIndex < nodes.size()) {
-            selectedNode = nodes.get(nodeIndex);
-        } else {
-            return "Indice del nodo non valido";
+    private Root getRootByName(String rootName) {
+        Root requestedRoot = null;
+        for (Root root : roots) {
+            if (root.toString().equals(rootName)) {
+                requestedRoot = root;
+            }
         }
 
-        OuterName selectedOuterName = null;
-        if (outerNameIndex > -1 && outerNameIndex < outerNames.size()) {
-            selectedOuterName = outerNames.get(outerNameIndex);
-        } else {
-            return "indice dell'outerName non valido";
-        }
-
-        if (linkMode < 0 || linkMode > 1) {
-            return "Modalità di collegamento del nome non valida. Modalità disponibili: 0 per lettura, 1 per scrittura";
-        }
-
-        selectedNode.getOutPort(linkMode).getEditable().setHandle(selectedOuterName.getEditable()); // link the net to the node in read mode
-        return String.format("OuterName '%s' collegato al nodo '%s' in modalità %s",  selectedOuterName.toString(), selectedNode.toString(),
-                linkMode == 0 ? "lettura" : "scrittura");
+        return requestedRoot;
     }
 
     /**
      *
-     * @param nodeIndex indice del nodo a cui collegare l'handle
-     * @param portMode modalità con cui collegare l'handle al nodo: 0 per READ_MODE, 1 per WRITE_MODE
-     * @param handleType tipo di handle nell'insieme {"outerName", "editableHandle", "inPort", "edge"}
-     * @param handleIndex indice dell'handle nella sua relativa lista
+     * @param nodeName name of the node to get. Every node name must be unique for the considered builder
+     * @return the node searched if it is present in the list, null else
      */
-    @GetMapping(value = "/linkNameToNode")
-    private void linkNameToNode(@RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex,
-                        @RequestParam(name = "portMode", defaultValue = "-1") int portMode,
-                        @RequestParam(name = "handleType") String handleType,
-                        @RequestParam(name = "handleIndex") int handleIndex) {
-
-        if (portMode < 0 || portMode > 1) {
-            System.out.println("Modalità di collegamento non valida. Scegliere 0 per READ o 1 per WRITE.");
-        } else {
-            Handle selectedHandle = null;
-            switch (handleType) {
-                case HANDLE_OUTER_NAME:
-                    selectedHandle = outerNames.get(handleIndex).getEditable();
-                    break;
-                case HANDLE_IN_PORT:
-                    selectedHandle = inPorts.get(handleIndex).getEditable();
-                    break;
-                case HANDLE_EDITABLE_HANDLE:
-                    selectedHandle = editableHandles.get(handleIndex);
-                    break;
-                case HANDLE_EDGE:
-                    selectedHandle = edges.get(handleIndex).getEditable();
-                    break;
-                default:
-                    return;
-            }
-
-            if (nodeIndex == -1) {
-                System.out.println("Indice del nodo non valido");
-            } else {
-                Node selectedNode = nodes.get(nodeIndex);
-                selectedNode.getOutPort(portMode).getEditable().setHandle(selectedHandle.getEditable());
-                System.out.format("Collegato '%s' al nodo %s!\n", selectedHandle.toString(), selectedNode.toString());
+    private Node getNodeByName(String nodeName) {
+        Node requestedNode = null;
+        for (Node node : nodes) {
+            if (node.toString().equals(nodeName)) {
+                requestedNode = node;
             }
         }
+
+        return requestedNode;
     }
 
-    @GetMapping(value = "makeBigraph")
-    private DirectedBigraph makeBigraph(@RequestParam(name = "closeBigraph", defaultValue = "false") boolean closeBigraph) {
-        return currentBuilder.makeBigraph(closeBigraph);
+    /**
+     *
+     * @param editableParentName name of the editableParent to get. Every node name must be unique for the considered builder
+     * @return the editableParent searched if it is present in the list, null else
+     */
+    private EditableParent getEditableParentByName(String editableParentName) {
+        EditableParent requestedEditableParent = null;
+        for (EditableParent editableParent : editableParents) {
+            if (editableParent.toString().equals(editableParentName)) {
+                requestedEditableParent = editableParent;
+            }
+        }
+
+        return requestedEditableParent;
+    }
+
+    /**
+     *
+     * @param parentName name of the parent to search
+     * @return the searched parent if it has been founded, null else
+     */
+    private Parent getParentByName(String parentName) {
+
+        for (Root root : roots) {
+            if (root.toString().equals(parentName)) {
+                return root;
+            }
+        }
+        for (Node node : nodes) {
+            if (node.toString().equals(parentName)) {
+                return node;
+            }
+        }
+        for (EditableParent editableParent : editableParents) {
+            if (editableParent.toString().equals(parentName)) {
+                return editableParent;
+            }
+        }
+
+        return null;
     }
 }
