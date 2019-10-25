@@ -6,12 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
-import static com.andreavendrame.ldb4docker.BigraphImportController.READ_MODE;
-import static com.andreavendrame.ldb4docker.BigraphImportController.WRITE_MODE;
 import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.*;
 
 @RestController
@@ -19,6 +16,7 @@ import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.*;
 public class Editor {
 
     private static final String INVALID_TYPE = "noType";
+    public static final String INVALID_NAME = "invalidName";
 
     @Autowired
     private RestTemplate restTemplate;
@@ -86,15 +84,31 @@ public class Editor {
     }
 
     /**
-     * @param index posizione della radice del bigrafo nella lista delle radici disponibili
-     * @return l'intera lista di radici del builder se {@param index} è -1; la root in posizione {@param index} altrimenti
+     * @param index position of the root to get in the root list
+     * @param rootName name of the root to get
+     * @return there can be 3 possibility specifing one or the other parameter
+     *              1) index not specified or index == -1: return the entire root list;
+     *              2) index specified: return a one item list with the specified root;
+     *              3) name specificied: return a one item list with the specified root.
+     *              Method notes:
+     *              - If the index is not valid (e.g. index out of bound)
+     *              or the name is not valid the method return an empty list
      */
     @GetMapping(value = "/roots")
-    private Object getRoot(@RequestParam(name = "index", defaultValue = "-1") int index) {
-        if (index == -1) {
-            return currentBuilder.getRoots();
+    private List<Root> getRoot(@RequestParam(name = "index", defaultValue = "-1") int index,
+                               @RequestParam(name = "name", defaultValue = INVALID_NAME) String rootName) {
+
+        List<Root> oneItemList = new LinkedList<>();
+        if (rootName.equals(INVALID_NAME)) {
+            if (index == -1) {
+                return roots;
+            } else {
+                oneItemList.add(currentBuilder.getRoots().get(index));
+                return oneItemList;
+            }
         } else {
-            return currentBuilder.getRoots().get(index);
+            oneItemList.add(getRootByName(rootName));
+            return oneItemList;
         }
     }
 
