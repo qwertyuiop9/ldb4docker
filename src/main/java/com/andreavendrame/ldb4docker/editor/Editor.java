@@ -64,8 +64,8 @@ public class Editor {
     }
 
     /**
-     * @param locality località del bigrafo in cui aggiungere la radice
-     * @return la radice appena aggiunta se è stato possibile aggiungerla senza errori
+     * @param locality of the bigraph in which add the root
+     * @return the newly added root if it has been possible to add it without errors
      */
     @PostMapping(value = "/roots")
     private Object addRoot(@RequestParam(value = "locality", defaultValue = "-1") int locality) {
@@ -84,15 +84,15 @@ public class Editor {
     }
 
     /**
-     * @param index position of the root to get in the root list
+     * @param index    position of the root to get in the root list
      * @param rootName name of the root to get
      * @return there can be 3 possibility specifing one or the other parameter
-     *              1) index not specified or index == -1: return the entire root list;
-     *              2) index specified: return a one item list with the specified root;
-     *              3) name specificied: return a one item list with the specified root.
-     *              Method notes:
-     *              - If the index is not valid (e.g. index out of bound)
-     *              or the name is not valid the method return an empty list
+     * 1) index not specified or index == -1: return the entire root list;
+     * 2) index specified: return a one item list with the specified root;
+     * 3) name specificied: return a one item list with the specified root.
+     * Method notes:
+     * - If the index is not valid (e.g. index out of bound)
+     * or the name is not valid the method return an empty list
      */
     @GetMapping(value = "/roots")
     private List<Root> getRoot(@RequestParam(name = "index", defaultValue = "-1") int index,
@@ -260,12 +260,19 @@ public class Editor {
     }
 
     @GetMapping(value = "/nodes")
-    private List<Node> getNodes(@RequestParam(value = "index", defaultValue = "-1") int index) {
-        if (index == -1) {
-            return nodes;
+    private List<Node> getNodes(@RequestParam(value = "index", defaultValue = "-1") int index,
+                                @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
+
+        List<Node> oneItemList = new LinkedList<>();
+        if (name.equals(INVALID_NAME)) {
+            if (index == -1) {
+                return nodes;
+            } else {
+                oneItemList.add(nodes.get(index));
+                return oneItemList;
+            }
         } else {
-            List<Node> oneItemList = new LinkedList<>();
-            oneItemList.add(nodes.get(index));
+            oneItemList.add(getNodeByName(name));
             return oneItemList;
         }
     }
@@ -274,13 +281,13 @@ public class Editor {
      * @param controlName name of the control to insert
      * @param parentType  one between "root", "editableParent", "node"
      * @param parentIndex index of the parent to get from the related list
-     * @param parentName name of the parent to get from the related list
-     *                   Method notes:
-     *                   - The parameter "controlName" must be always setted
-     *                   Method uses - Parameter combinations:
-     *                   1) "parentType" + "parentIndex"
-     *                   2) "parentType" + "parentName"
-     *                   3) "name" only
+     * @param parentName  name of the parent to get from the related list
+     *                    Method notes:
+     *                    - The parameter "controlName" must be always setted
+     *                    Method uses - Parameter combinations:
+     *                    1) "parentType" + "parentIndex"
+     *                    2) "parentType" + "parentName"
+     *                    3) "name" only
      * @return the insertion resulting node
      */
     @PostMapping(value = "/nodes")
@@ -362,10 +369,10 @@ public class Editor {
     }
 
     /**
-     * @param nodeIndex   indice del nodo a cui collegare l'handle
-     * @param portMode    modalità con cui collegare l'handle al nodo: 0 per READ_MODE, 1 per WRITE_MODE
-     * @param handleType  tipo di handle nell'insieme {"outerName", "editableHandle", "inPort", "edge"}
-     * @param handleIndex indice dell'handle nella sua relativa lista
+     * @param nodeIndex   index of the node to which to connect the handle
+     * @param portMode    how to connect the handle to the node: 0 for READ_MODE, 1 for WRITE_MODE
+     * @param handleType  handle type in the set {"outerName", "editableHandle", "inPort", "edge"}
+     * @param handleIndex index of the handle in its relative list
      */
     @PostMapping(value = "/linkNameToNode")
     private void linkNameToNode(@RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex,
@@ -387,7 +394,6 @@ public class Editor {
         }
     }
 
-
     @GetMapping(value = "/innerInterfaces")
     private Interface getInnerInterface() {
         return currentBuilder.getInnerInterface();
@@ -397,7 +403,6 @@ public class Editor {
     private Interface getOuterInterface() {
         return currentBuilder.getOuterInterface();
     }
-
 
     @GetMapping(value = "services")
     private List<String> gerServices(@RequestParam(value = "index", defaultValue = "-1") int index) {
@@ -416,9 +421,9 @@ public class Editor {
     }
 
     /**
-     * @param handleType  uno tipo tra "outerName", "editableHandle", "inPort", "edge"
-     * @param handleIndex indice dell'handle nella lista selezionata
-     * @return l'istanza di handle selezionata
+     * @param handleType  a type between "outerName", "editableHandle", "inPort", "edge"
+     * @param handleIndex index of the handle in the selected list
+     * @return the selected handle instance
      */
     private Handle getHandle(String handleType, int handleIndex) {
 
@@ -436,7 +441,6 @@ public class Editor {
     }
 
     /**
-     *
      * @param rootName name of the root to get. Every root name must be unique for the considered builder
      * @return the root searched if it is present in the list, null else
      */
@@ -452,7 +456,6 @@ public class Editor {
     }
 
     /**
-     *
      * @param nodeName name of the node to get. Every node name must be unique for the considered builder
      * @return the node searched if it is present in the list, null else
      */
@@ -468,7 +471,6 @@ public class Editor {
     }
 
     /**
-     *
      * @param editableParentName name of the editableParent to get. Every node name must be unique for the considered builder
      * @return the editableParent searched if it is present in the list, null else
      */
@@ -484,7 +486,6 @@ public class Editor {
     }
 
     /**
-     *
      * @param parentName name of the parent to search
      * @return the searched parent if it has been founded, null else
      */
