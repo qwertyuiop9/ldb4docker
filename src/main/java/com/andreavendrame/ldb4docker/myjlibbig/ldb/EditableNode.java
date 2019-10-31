@@ -7,7 +7,7 @@ import com.andreavendrame.ldb4docker.myjlibbig.util.NameGenerator;
 
 import java.util.*;
 
-class EditableNode implements Node, EditableParent, EditableChild {
+public class EditableNode implements Node, EditableParent, EditableChild {
     public static final String PROPERTY_OWNER = "Owner";
     private final List<EditableOutPort> outPorts;
     private final List<EditableInPort> inPorts;

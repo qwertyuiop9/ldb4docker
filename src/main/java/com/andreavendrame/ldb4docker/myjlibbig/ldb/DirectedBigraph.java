@@ -1181,7 +1181,7 @@ final public class DirectedBigraph implements
      * props.getPropertyNames(); }
      */
 
-    static class Interface<Asc extends EditableLinkFacet, Desc extends EditableLinkFacet> implements com.andreavendrame.ldb4docker.myjlibbig.Interface {
+    public static class Interface<Asc extends EditableLinkFacet, Desc extends EditableLinkFacet> implements com.andreavendrame.ldb4docker.myjlibbig.Interface {
         final List<InterfacePair<Asc, Desc>> names = new ArrayList<>();
 
         Interface() {

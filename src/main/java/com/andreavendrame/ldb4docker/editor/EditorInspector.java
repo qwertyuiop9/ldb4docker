@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.nodes;
 import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.outerNames;
 
 @RestController
@@ -35,18 +36,18 @@ public class EditorInspector {
      */
     private void addNodeDescription(StringBuilder stringBuilder, int i) {
         Node currentNode = EditingEnvironment.nodes.get(i);
-        stringBuilder.append("Nodo ").append(i).append(" ");
-        stringBuilder.append(" nome: ").append(currentNode.getName());
-        stringBuilder.append("- Porte in uscita [ ");
+        stringBuilder.append("<<--- NODE (").append(i).append( ") '").append(currentNode.getName()).append("' - ");
+        stringBuilder.append("Parent: ' ").append(currentNode.getParent().getEditable().toString()).append("' ");
+        stringBuilder.append("- Out ports [ ");
         for (OutPort outPort : currentNode.getOutPorts()) {
             stringBuilder.append(outPort.toString()).append(", ");
         }
         stringBuilder.append("], ");
-        stringBuilder.append("- Porte in entrata [ ");
+        stringBuilder.append("- In ports [ ");
         for (InPort inPort : currentNode.getInPorts()) {
             stringBuilder.append(inPort.toString()).append(", ");
         }
-        stringBuilder.append("], ");
+        stringBuilder.append("] --->> ");
     }
 
     /**
@@ -89,6 +90,33 @@ public class EditorInspector {
         }
 
         return stringBuilder.toString() ;
+    }
+
+    /**
+     * @param index indice del sito da ispezionare
+     * @return una stringa che descrive il nome del nodo e quello del suo parent ad esso direttamente collegato se
+     * il parametro {@param index} è valido, mentre la lista di tutte le istanze di site con i parent direttamente connessi altrimenti
+     */
+    @GetMapping(value = "/showSites")
+    private String showSites(@RequestParam(value = "index", defaultValue = "-1") int index) {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        if (index != -1) {
+            EditableSite editableSite = EditingEnvironment.sites.get(index).getEditable();
+            stringBuilder.append("<-- Site: '").append(editableSite.toString()).append("'").append(", ");
+            stringBuilder.append("[parent: '").append(editableSite.getParent().toString()).append("]");
+            stringBuilder.append(" -->");
+        } else {
+            for (Root root : EditingEnvironment.roots) {
+                EditableRoot editableRoot = root.getEditable();
+                stringBuilder.append("'").append(editableRoot.toString()).append("'");
+                stringBuilder.append(" - Children: [");
+                addChildrenInformation(stringBuilder, editableRoot);
+                stringBuilder.append("] ");
+            }
+        }
+
+        return stringBuilder.toString();
     }
 
     private void addOuterNameDescription(StringBuilder stringBuilder, int i) {

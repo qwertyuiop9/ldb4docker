@@ -16,7 +16,7 @@ import java.util.Objects;
 @RequestMapping(value = "/test")
 public class RestTest {
 
-    private static final boolean SHOW_REQUEST_OUTPUT = false;
+    private static final boolean SHOW_REQUEST_OUTPUT = true;
     private static final String GET_REQUEST = "GET";
     private static final String POST_REQUEST = "POST";
 
@@ -46,6 +46,7 @@ public class RestTest {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) Objects.requireNonNull(url).openConnection();
+            connection.setDoOutput(SHOW_REQUEST_OUTPUT);
         } catch (IOException e) {
             System.out.format("Richiesta %s fallita. Causa ERRORE APERTURA CONNESSIONE...\n", httpRequest);
             e.printStackTrace();
@@ -62,7 +63,6 @@ public class RestTest {
                     Objects.requireNonNull(connection).setRequestMethod(GET_REQUEST);
                     break;
             }
-
         } catch (ProtocolException e) {
             System.out.format("Richiesta %s fallita. Causa REQUEST METHOD errato...\n", httpRequest);
             e.printStackTrace();
@@ -79,6 +79,10 @@ public class RestTest {
 
     private void loadRequestList() {
 
+
+
+        // Resetting the editor
+        this.testRequests.add(new MyRequest("http://localhost:8081/editor/reset", POST_REQUEST));
         // Creating builder controls and initializing it
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/directedControls?controlName=container&arityIn=1&arityOut=0&active=true", POST_REQUEST));
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/directedControls?controlName=network&arityIn=0&arityOut=2&active=true", POST_REQUEST));
@@ -88,6 +92,10 @@ public class RestTest {
         // Editing the builder by adding ports, names, links ecc...
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/roots", POST_REQUEST));
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/nodes?controlName=container&parentType=root&parentName=0:r", POST_REQUEST));
+        this.testRequests.add(new MyRequest("http://localhost:8081/editor/nodes?controlName=network&parentType=root&parentName=0:r", POST_REQUEST));
+        this.testRequests.add(new MyRequest("http://localhost:8081/editor/sites?parentName=N_FA0", POST_REQUEST));
+        // Make bigraph
+        this.testRequests.add(new MyRequest("http://localhost:8081/editor/makeBigraph", GET_REQUEST));
         //this.testRequests.add(new MyRequest("", ""));
     }
 

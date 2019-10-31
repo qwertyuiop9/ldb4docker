@@ -24,17 +24,16 @@ public class EditingEnvironment {
     public static DirectedBigraphBuilder currentBuilder;
     public static DirectedSignature currentSignature;
 
-    public static final List<OuterName> outerNames = new LinkedList<>();
-    public static final List<InnerName> innerNames = new LinkedList<>();
-    public static final List<Site> sites = new LinkedList<>();
-    public static final List<Edge> edges = new LinkedList<>();
-    public static final List<Node> nodes = new LinkedList<>();
-    public static final List<EditableParent> editableParents = new LinkedList<>();
-    public static final List<DirectedControl> bigraphControls = new LinkedList<>();
-    public static final List<String> services = new LinkedList<>();
-    public static final List<EditableHandle> editableHandles = new LinkedList<>();
-    public static final List<InPort> inPorts = new LinkedList<>();
-    public static final List<Root> roots = new LinkedList<>();
+    public static List<OuterName> outerNames = new LinkedList<>();
+    public static List<InnerName> innerNames = new LinkedList<>();
+    public static List<Site> sites = new LinkedList<>();
+    public static List<Node> nodes = new LinkedList<>();
+    public static List<EditableParent> editableParents = new LinkedList<>();
+    public static List<DirectedControl> bigraphControls = new LinkedList<>();
+    public static List<String> services = new LinkedList<>();
+    public static List<EditableHandle> editableHandles = new LinkedList<>();
+    public static List<InPort> inPorts = new LinkedList<>();
+    public static List<Root> roots = new LinkedList<>();
 
 
 }

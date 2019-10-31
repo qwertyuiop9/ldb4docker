@@ -119,6 +119,7 @@ public class BigraphImportController {
             Node node = currentBuilder.addNode("container", currentRoot);
 
             Site site = currentBuilder.addSite(node); // add a site for future purposes
+            EditableNode.EditableInPort e = node.getInPort(0).getEditable();
             InnerName innerName = currentBuilder.addDescNameOuterInterface(1, service, node.getInPort(READ_MODE).getEditable());
             // networks
             if (useDefaultNetwork) {
@@ -230,7 +231,9 @@ public class BigraphImportController {
             System.out.println("Resulting bigraph: \n" + currentBuilder);
             System.out.println("----------------------------------------------");
 
-            graphs.add(currentBuilder.makeBigraph());
+            DirectedBigraph lastBigraph = currentBuilder.makeBigraph();
+            printIntefaceInfo(lastBigraph);
+            graphs.add(lastBigraph);
             locality++; // ready for the next
         }
         System.out.println("Compose bigraph: \n" + directedBigraphBuilder);
@@ -240,6 +243,15 @@ public class BigraphImportController {
         outs.add(directedBigraphBuilder.makeBigraph());
 
         return DirectedBigraph.compose(outs, graphs);
+    }
+
+    private void printIntefaceInfo(DirectedBigraph directedBigraph) {
+
+        System.out.println("Method 'printIntefaceInfo'");
+        Iterator iterator = directedBigraph.getInnerInterface().keySet().iterator();
+        while (iterator.hasNext()) {
+            System.out.println("Key: " + (String) iterator.next());
+        }
     }
 
     /**

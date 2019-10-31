@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -17,6 +18,8 @@ public class Editor {
 
     private static final String INVALID_TYPE = "noType";
     public static final String INVALID_NAME = "invalidName";
+    public static final String INVALID_INDEX = "-1";
+    public static final int INVALID_INDEX_NUMBER = -1;
 
     @Autowired
     private RestTemplate restTemplate;
@@ -56,7 +59,7 @@ public class Editor {
     @PostMapping(value = "/start-editing")
     public DirectedBigraphBuilder createBuilder() {
 
-        System.out.format("Creo il builder...");
+        System.out.format("Creating the builder instance...");
         currentBuilder = new DirectedBigraphBuilder(currentSignature);
         System.out.println("OK!\n");
         return currentBuilder;
@@ -112,6 +115,16 @@ public class Editor {
         }
     }
 
+    @DeleteMapping(value = "/roots")
+    private void removeRoot(@RequestParam(name = "locality", defaultValue = "-1") int locality) {
+
+        if (locality != -1) {
+            currentBuilder.removeRoot(locality);
+        } else {
+            System.out.println("Index of the root to delete not specified... Try again specifing the locality");
+        }
+    }
+
     @PostMapping(value = "/addDescNameInnerInterface")
     private OuterName addDescNameInnerInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
                                                 @RequestParam(name = "name", defaultValue = "") String name) {
@@ -130,44 +143,41 @@ public class Editor {
     }
 
     /**
-     * @param localityIndex indice della località
-     * @param name          nome del servizio scelto
-     * @param handleType    tpo di Handle
-     * @param handleIndex   indice dell'handle se in una lista
-     * @param portMode      se specificato questo parametro, che deve essere 0 o 1,
-     *                      allora il valore di handleType deve essere inPort,
-     *                      handleIndex deve indicare un nodo nella lista {@code nodes},
-     *                      --> chiamata del tipo addDescNameOuterInterface(1, "ilMioServizio", "inPort", 0, 0)
-     * @return l'handle scelto
+     * @param locality to use
+     * @param name of the innerName to create
+     * @param edgeIndex if specified this parameter, an instance of "Edge", will be used as the "Handle" parameter
+     * @param outerNameIndex if specified this parameter, an instance of "OuterName", will be used as the "Handle" parameter
+     * @param inPortIndex if specified this parameter, an instance of "InPort", will be used as the "Handle" parameter
+     * @return the new innerName
      */
     @PostMapping(value = "/addDescNameOuterInterface")
-    private InnerName addDescNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
-                                                @RequestParam(name = "name", defaultValue = "") String name,
-                                                @RequestParam(name = "handleType") String handleType,
-                                                @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex,
-                                                @RequestParam(name = "portMode", defaultValue = "-1") int portMode) {
-
+    private InnerName addDescNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int locality,
+                                                @RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
+                                                @RequestParam(name = "edgeIndex", defaultValue = INVALID_INDEX ) int edgeIndex,
+                                                @RequestParam(name = "outerNameIndex", defaultValue = INVALID_INDEX) int outerNameIndex,
+                                                @RequestParam(name = "inPortIndex", defaultValue = INVALID_INDEX) int inPortIndex) {
         InnerName innerName;
 
-        if (localityIndex == -1) {
-            return null;
-        } else if (portMode != -1 && handleType.equals(HANDLE_IN_PORT)) {
-            innerName = currentBuilder.addDescNameOuterInterface(localityIndex, name, nodes.get(handleIndex).getInPort(portMode).getEditable());
-            innerNames.add(innerName);
-            return innerName;
+        if (locality == -1) {
+            System.out.println("Method 'addDescNameOuterInterface' invalid 'locality parameter");
+            innerName = currentBuilder.addDescNameOuterInterface(locality);
         } else {
-            if (name.equals("") && handleIndex == -1) {     // Solo la località specificata
-                innerName = currentBuilder.addDescNameOuterInterface(localityIndex);
-            } else if (name.equals("")) {                   // Località e Handle specificati
-                innerName = currentBuilder.addDescNameOuterInterface(localityIndex, getHandle(handleType, handleIndex));
-            } else if (handleIndex == -1) {                 // Località e Name specificati
-                innerName = currentBuilder.addDescNameOuterInterface(localityIndex, name);
+            Handle handle = getHandle(outerNameIndex, edgeIndex, inPortIndex);
+            if (handle != null && name.equals(INVALID_NAME)) {
+                innerName = currentBuilder.addDescNameOuterInterface(locality, handle);
+            } else if (!name.equals(INVALID_NAME) && handle == null) {
+                innerName = currentBuilder.addDescNameOuterInterface(locality, name);
+            } else if (!name.equals(INVALID_NAME)) {
+                innerName = currentBuilder.addDescNameOuterInterface(locality, name, handle);
             } else {
-                innerName = currentBuilder.addDescNameOuterInterface(localityIndex, name, getHandle(handleType, handleIndex));
+                System.out.println("One o more parameter not valid");
+                innerName = null;
             }
-            innerNames.add(innerName);
-            return innerName;
         }
+
+        innerNames.add(innerName);
+        return innerName;
+
     }
 
     @PostMapping(value = "/addAscNameOuterInterface")
@@ -193,7 +203,8 @@ public class Editor {
                                                @RequestParam(name = "name", defaultValue = "") String name,
                                                @RequestParam(name = "handleType", defaultValue = "") String handleType,
                                                @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex) {
-        if (localityIndex == -1) {
+
+        if (localityIndex == INVALID_INDEX_NUMBER) {
             return null;
         } else {
             if (name.equals("") && handleIndex == -1) {     // Solo la località specificata
@@ -237,24 +248,32 @@ public class Editor {
         }
     }
 
-    @GetMapping(value = "/sites")
-    private List<Site> getSites(@RequestParam(name = "index", defaultValue = "-1") int index) {
-        if (index == -1) {
-            return sites;
-        } else {
-            List<Site> oneItemList = new LinkedList<>();
-            oneItemList.add(sites.get(index));
-            return oneItemList;
-        }
-    }
-
     @GetMapping(value = "/edges")
-    private List<Edge> getEdges(@RequestParam(name = "index", defaultValue = "-1") int index) {
-        if (index == -1) {
-            return edges;
+    private List<Edge> getEdges(@RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
+                                @RequestParam(name = "index", defaultValue = INVALID_INDEX) int index) {
+
+        List<Edge> edges = new LinkedList<>(currentBuilder.getEdges());
+        for (Edge e : edges) {
+            System.out.format("Edge name: '%s'\n", e.getEditable().getName());
+        }
+
+        if (name.equals(INVALID_NAME)) {
+            if (index == -1) {
+                return edges;
+            } else {
+                List<Edge> oneItemList = new LinkedList<>();
+                oneItemList.add(edges.get(index));
+                return oneItemList;
+            }
         } else {
             List<Edge> oneItemList = new LinkedList<>();
-            oneItemList.add(edges.get(index));
+            for (Edge edge : edges) {
+                if (edge.getEditable().getName().equals(name)) {
+                    oneItemList.add(edge);
+                }
+            }
+
+            System.out.format("List length: %d\n", oneItemList.size());
             return oneItemList;
         }
     }
@@ -298,8 +317,7 @@ public class Editor {
 
         Node resultNode;
         Parent parent;
-        System.out.format("Parent type '%s', ", parentType);
-
+        System.out.format("---------- Parent type '%s', ", parentType);
         if (parentType.equals(INVALID_TYPE)) {
             parent = getParentByName(parentName);
         } else {
@@ -344,28 +362,55 @@ public class Editor {
     }
 
     @PostMapping(value = "/sites")
-    private Site addSite(@RequestParam(name = "parentType") String parentType,
-                         @RequestParam(name = "parentIndex") int parentIndex) {
+    private Site addSite(@RequestParam(name = "parentType", defaultValue = INVALID_TYPE) String parentType,
+                         @RequestParam(name = "parentIndex", defaultValue = INVALID_INDEX) int parentIndex,
+                         @RequestParam(name = "parentName", defaultValue = INVALID_NAME) String parentName) {
 
-        Site resultSite = null;
+        Site resultSite;
         Parent parentNode = null;
 
-        switch (parentType) {
+        if (parentName.equals(INVALID_NAME)) {
+            switch (parentType) {
 
-            case PARENT_NODE:
-                parentNode = nodes.get(parentIndex);
-                break;
-            case PARENT_ROOT:
-                parentNode = currentBuilder.getRoots().get(parentIndex);
-                break;
-            case PARENT_EDITABLE_PARENT:
-                parentNode = editableParents.get(parentIndex);
-                break;
+                case PARENT_NODE:
+                    parentNode = nodes.get(parentIndex);
+                    break;
+                case PARENT_ROOT:
+                    parentNode = currentBuilder.getRoots().get(parentIndex);
+                    break;
+                case PARENT_EDITABLE_PARENT:
+                    parentNode = editableParents.get(parentIndex);
+                    break;
+            }
+        } else {
+            parentNode = getParentByName(parentName);
         }
+
 
         resultSite = currentBuilder.addSite(parentNode);
         sites.add(resultSite);
         return resultSite;
+    }
+
+    @GetMapping(value = "/sites")
+    private List<Site> getSites(@RequestParam(name = "index", defaultValue = "-1") int index) {
+        if (index == -1) {
+            return sites;
+        } else {
+            List<Site> oneItemList = new LinkedList<>();
+            oneItemList.add(sites.get(index));
+            return oneItemList;
+        }
+    }
+
+    @DeleteMapping(value = "/sites")
+    private void removeSite(@RequestParam(name = "index", defaultValue = "-1") int index) {
+
+        if (index != -1) {
+            currentBuilder.removeRoot(index);
+        } else {
+            System.out.println("Index of the site to delete not specified... Try again by specifing the index");
+        }
     }
 
     /**
@@ -404,6 +449,7 @@ public class Editor {
         return currentBuilder.getOuterInterface();
     }
 
+
     @GetMapping(value = "services")
     private List<String> gerServices(@RequestParam(value = "index", defaultValue = "-1") int index) {
         if (index == -1) {
@@ -416,8 +462,9 @@ public class Editor {
     }
 
     @GetMapping(value = "makeBigraph")
-    private DirectedBigraph makeBigraph(@RequestParam(name = "closeBigraph", defaultValue = "false") boolean closeBigraph) {
-        return currentBuilder.makeBigraph(closeBigraph);
+    private DirectedBigraph.Interface makeBigraph(@RequestParam(name = "closeBigraph", defaultValue = "false") boolean closeBigraph) {
+        DirectedBigraph resultingBigraph =  currentBuilder.makeBigraph(closeBigraph);
+        return resultingBigraph.getOuterInterface();
     }
 
     /**
@@ -435,9 +482,25 @@ public class Editor {
             case HANDLE_IN_PORT:
                 return inPorts.get(handleIndex);
             default:
-                return edges.get(handleIndex);
+                return getEdges(INVALID_NAME, handleIndex).get(0);
         }
 
+    }
+
+    private Handle getHandle(int outerNameIndex, int edgeIndex, int editableInPortIndex) {
+        if (outerNameIndex != INVALID_INDEX_NUMBER && edgeIndex == INVALID_INDEX_NUMBER && editableInPortIndex == INVALID_INDEX_NUMBER) {
+            // Selected an outerName as handle
+            return outerNames.get(outerNameIndex);
+        } else if (outerNameIndex == INVALID_INDEX_NUMBER && edgeIndex != INVALID_INDEX_NUMBER && editableInPortIndex == INVALID_INDEX_NUMBER) {
+            // Selected an edge as handle
+            return getEdges(INVALID_NAME, edgeIndex).get(0);
+        } else if (outerNameIndex == INVALID_INDEX_NUMBER && edgeIndex == INVALID_INDEX_NUMBER && editableInPortIndex != INVALID_INDEX_NUMBER) {
+            // Selected a inPort as handle
+            return inPorts.get(editableInPortIndex);
+        } else {
+            System.out.println("Method 'getHandle' - Select only one type of handle");
+            return null;
+        }
     }
 
     /**
@@ -471,6 +534,28 @@ public class Editor {
     }
 
     /**
+     * This method will reset all the builder variables and the builder instance itself
+     */
+    @PostMapping(value = "reset")
+    private void resetCurrentBuilderToZero() {
+
+        outerNames = new LinkedList<>();
+        innerNames = new LinkedList<>();
+        sites = new LinkedList<>();
+        nodes = new LinkedList<>();
+        editableParents = new LinkedList<>();
+        bigraphControls = new LinkedList<>();
+        services = new LinkedList<>();
+        editableHandles = new LinkedList<>();
+        inPorts = new LinkedList<>();
+        roots = new LinkedList<>();
+
+        currentSignature = null;
+        currentBuilder = null;
+
+    }
+
+    /**
      * @param editableParentName name of the editableParent to get. Every node name must be unique for the considered builder
      * @return the editableParent searched if it is present in the list, null else
      */
@@ -497,7 +582,7 @@ public class Editor {
             }
         }
         for (Node node : nodes) {
-            if (node.toString().equals(parentName)) {
+            if (node.getName().equals(parentName)) {
                 return node;
             }
         }

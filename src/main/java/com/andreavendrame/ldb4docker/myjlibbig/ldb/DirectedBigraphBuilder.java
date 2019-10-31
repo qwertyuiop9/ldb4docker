@@ -50,9 +50,9 @@ final public class DirectedBigraphBuilder implements
     }
 
     /**
-     * @param directedBigraph   the directed bigraph describing the starting state.
-     * @param reuse whether the argument can be reused as it is or should be
-     *              cloned.
+     * @param directedBigraph the directed bigraph describing the starting state.
+     * @param reuse           whether the argument can be reused as it is or should be
+     *                        cloned.
      */
     DirectedBigraphBuilder(DirectedBigraph directedBigraph, boolean reuse) {
         if (directedBigraph == null)
@@ -279,7 +279,7 @@ final public class DirectedBigraphBuilder implements
      * @param controlName the control's name of the new node.
      * @param parent      the father of the new node, in the place graph.
      * @param handles     Handles (outernames or edges) that will be linked to new
-     *                    node's ports.
+     *                    node's ports (an array of Handle).
      * @return the new node.
      */
     public Node addNode(String controlName, Parent parent, Handle... handles) {
@@ -288,29 +288,30 @@ final public class DirectedBigraphBuilder implements
         if (parent == null)
             throw new IllegalArgumentException("Parent can not be null.");
         assertOpen();
-        DirectedControl c = this.directedBigraph.getSignature().getByName(controlName);
-        if (c == null)
+        DirectedControl directedControl = this.directedBigraph.getSignature().getByName(controlName);
+        if (directedControl == null)
             throw new IllegalArgumentException("Control should be in the signature.");
         assertOwner(parent, "Parent");
-        EditableHandle[] hs = new EditableHandle[c.getArityIn()];
-        for (int i = 0; i < hs.length; i++) {
-            EditableHandle h = null;
+        EditableHandle[] editableHandles = new EditableHandle[directedControl.getArityIn()];
+        for (int i = 0; i < editableHandles.length; i++) {
+            EditableHandle editableHandle = null;
             if (i < handles.length) {
-                h = (EditableHandle) handles[i];
+                editableHandle = (EditableHandle) handles[i];
             }
-            if (h != null) {
-                assertOwner(h, "Handle");
+            if (editableHandle != null) {
+                assertOwner(editableHandle, "Handle");
             } else {
-                EditableEdge e = new EditableEdge(this);
-                this.directedBigraph.onEdgeAdded(e);
-                h = e;
+                EditableEdge editableEdge = new EditableEdge(this);
+                this.directedBigraph.onEdgeAdded(editableEdge);
+                editableHandle = editableEdge;
             }
-            hs[i] = h;
+            editableHandles[i] = editableHandle;
         }
-        EditableNode n = new EditableNode(c, (EditableParent) parent, hs);
-        this.directedBigraph.onNodeAdded(n);
+        EditableNode editableNode = new EditableNode(directedControl, (EditableParent) parent, editableHandles);
+        this.directedBigraph.onNodeAdded(editableNode);
+        System.out.format("Name of the node added: '%s'\n", editableNode.getName());
         assertConsistency();
-        return n;
+        return editableNode;
     }
 
     /**
@@ -323,6 +324,8 @@ final public class DirectedBigraphBuilder implements
      * @return the new node.
      */
     public Node addNode(String controlName, Parent parent, List<Handle> handles) {
+        System.out.format("\nMethod 'addNode': handles list size %d\n", handles.size());
+        System.out.format("---------- Control name %s\n", controlName);
         if (controlName == null)
             throw new IllegalArgumentException("Control name can not be null.");
         if (parent == null)
@@ -333,26 +336,32 @@ final public class DirectedBigraphBuilder implements
             throw new IllegalArgumentException("Control should be in the signature.");
         assertOwner(parent, "Parent");
         int arityIn = directedControl.getArityIn();
-        List<EditableHandle> hs = new ArrayList<>(arityIn);
-        Iterator<Handle> hi = (handles == null) ? null : handles.iterator();
+        System.out.format("---------- Arity in %d\n", arityIn);
+        List<EditableHandle> editableHandles = new ArrayList<>(arityIn);
+        Iterator<Handle> handleIterator = (handles == null) ? null : handles.iterator();
+        System.out.format("---------- Empty iterator %b\n", !handleIterator.hasNext());
         for (int i = 0; i < arityIn; i++) {
-            EditableHandle h = null;
-            if (hi != null && hi.hasNext()) {
-                h = (EditableHandle) hi.next();
+            EditableHandle editableHandle = null;
+            if (handleIterator != null && handleIterator.hasNext()) {
+                editableHandle = (EditableHandle) handleIterator.next();
             }
-            if (h != null) {
-                assertOwner(h, "Handle");
+            if (editableHandle != null) {
+                assertOwner(editableHandle, "Handle");
             } else {
-                EditableEdge e = new EditableEdge(this);
-                this.directedBigraph.onEdgeAdded(e);
-                h = e;
+                EditableEdge editableEdge = new EditableEdge(this);
+                this.directedBigraph.onEdgeAdded(editableEdge);
+                editableHandle = editableEdge;
             }
-            hs.add(h);
+            editableHandles.add(editableHandle);
+            System.out.format("---------- Handle of type port: %b; point %b, edge %b, innerName %b, outerName %b, handle %b\n",
+                    editableHandle.isPort(), editableHandle.isPoint(), editableHandle.isEdge(),
+                    editableHandle.isInnerName(), editableHandle.isOuterName(), editableHandle.isHandle());
         }
-        EditableNode n = new EditableNode(directedControl, (EditableParent) parent, hs);
-        this.directedBigraph.onNodeAdded(n);
+        EditableNode editableNode = new EditableNode(directedControl, (EditableParent) parent, editableHandles);
+        this.directedBigraph.onNodeAdded(editableNode);
+        System.out.format("---------- Name of the node added: '%s'\n", editableNode.getName());
         assertConsistency();
-        return n;
+        return editableNode;
     }
 
     /**
@@ -508,20 +517,20 @@ final public class DirectedBigraphBuilder implements
     /**
      * Add an innername to the current bigraph's outer interface at the specified locality.
      *
-     * @param locality the locality where to look.
-     * @param n        innername that will be added.
-     * @param h        outername or edge that will be linked with the innername in input.
+     * @param locality  the locality where to look.
+     * @param innerName innername that will be added.
+     * @param handle    outername or edge that will be linked with the innername in input.
      * @return the inner name
      */
-    private InnerName addDescNameOuterInterface(int locality, EditableInnerName n, EditableHandle h) {
+    private InnerName addDescNameOuterInterface(int locality, EditableInnerName innerName, EditableHandle handle) {
         assertOpen();
-        if (this.directedBigraph.outers.getDesc(locality).containsKey(n.getName())) {
+        if (this.directedBigraph.outers.getDesc(locality).containsKey(innerName.getName())) {
             throw new IllegalArgumentException("Name already present.");
         }
-        n.setHandle(h);
-        this.directedBigraph.outers.addDesc(locality, n);
+        innerName.setHandle(handle);
+        this.directedBigraph.outers.addDesc(locality, innerName);
         assertConsistency();
-        return n;
+        return innerName;
     }
 
     /**
@@ -1062,12 +1071,12 @@ final public class DirectedBigraphBuilder implements
      * Roots and sites of the bigraph will precede those of the bigraphbuilder
      * in the resulting bigraphbuilder.
      *
-     * @param graph bigraph that will be juxtaposed.
-     * @param reuse flag. If true, the bigraph in input won't be copied.
+     * @param otherDirectedBigraph bigraph that will be juxtaposed.
+     * @param reuse                flag. If true, the bigraph in input won't be copied.
      */
-    public void leftJuxtapose(DirectedBigraph graph, boolean reuse) {
+    public void leftJuxtapose(DirectedBigraph otherDirectedBigraph, boolean reuse) {
         assertOpen();
-        DirectedBigraph left = graph;
+        DirectedBigraph left = otherDirectedBigraph;
         DirectedBigraph right = this.directedBigraph;
         if (left == right)
             throw new IllegalArgumentException("Operand shuld be distinct; a bigraph can not be juxtaposed with itself.");
@@ -1121,10 +1130,10 @@ final public class DirectedBigraphBuilder implements
      * Roots and sites of the bigraphbuilder will precede those of the bigraph
      * in the resulting bigraphbuilder.
      *
-     * @param graph bigraph that will be juxtaposed.
+     * @param otherDirectedBigraph bigraph that will be juxtaposed.
      */
-    public void rightJuxtapose(DirectedBigraph graph) {
-        rightJuxtapose(graph, false);
+    public void rightJuxtapose(DirectedBigraph otherDirectedBigraph) {
+        rightJuxtapose(otherDirectedBigraph, false);
     }
 
     /**
@@ -1132,13 +1141,13 @@ final public class DirectedBigraphBuilder implements
      * Roots and sites of the bigraphbuilder will precede those of the bigraph
      * in the resulting bigraphbuilder.
      *
-     * @param graph bigraph that will be juxtaposed.
-     * @param reuse flag. If true, the bigraph in input won't be copied.
+     * @param otherDirectedBigraph bigraph that will be juxtaposed.
+     * @param reuse                flag. If true, the bigraph in input won't be copied.
      */
-    public void rightJuxtapose(DirectedBigraph graph, boolean reuse) {
+    public void rightJuxtapose(DirectedBigraph otherDirectedBigraph, boolean reuse) {
         assertOpen();
         DirectedBigraph left = this.directedBigraph;
-        DirectedBigraph right = graph;
+        DirectedBigraph right = otherDirectedBigraph;
         if (left == right)
             throw new IllegalArgumentException("Operand shuld be distinct; a bigraph can not be juxtaposed with itself.");
         // Arguments are assumed to be consistent (e.g. parent and links are well defined)
@@ -1377,7 +1386,7 @@ final public class DirectedBigraphBuilder implements
     /**
      * Juxtapose bigraph in input with the current bigraphbuilder. <br />
      * ParallelProduct, differently from the normal juxtapose, doesn't need
-     * disjoint sets of outernames for the two bigraphs. Common outernames will
+     * disjoint sets of outernames for the two bigraphshs. Common outernames will
      * be merged. <br />
      * Roots and sites of the bigraph will precede those of the bigraphbuilder
      * in the resulting bigraphbuilder.

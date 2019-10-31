@@ -88,7 +88,7 @@ public class EditableEdge implements Edge, EditableHandle, Replicable {
         return this.owner;
     }
 
-    String getName() {
+    public String getName() {
         return name;
     }
 

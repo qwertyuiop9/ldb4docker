@@ -8,7 +8,7 @@ import com.andreavendrame.ldb4docker.myjlibbig.attachedProperties.ReplicationLis
 import com.andreavendrame.ldb4docker.myjlibbig.attachedProperties.ReplicationListenerContainer;
 import com.andreavendrame.ldb4docker.myjlibbig.util.NameGenerator;
 
-class EditableSite implements EditableChild, Site {
+public class EditableSite implements EditableChild, Site {
 
     static final String PROPERTY_OWNER = "Owner";
     private final DelegatedProperty.PropertySetter<Owner> ownerSetter;
