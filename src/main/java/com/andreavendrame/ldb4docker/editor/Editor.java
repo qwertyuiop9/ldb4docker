@@ -6,7 +6,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -249,12 +248,14 @@ public class Editor {
     }
 
     @GetMapping(value = "/edges")
-    private List<Edge> getEdges(@RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
+    public static List<Edge> getEdges(@RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
                                 @RequestParam(name = "index", defaultValue = INVALID_INDEX) int index) {
+
+        System.out.println("Method 'getEdges' ---->");
 
         List<Edge> edges = new LinkedList<>(currentBuilder.getEdges());
         for (Edge e : edges) {
-            System.out.format("Edge name: '%s'\n", e.getEditable().getName());
+            System.out.format("---------- Edge name: '%s'\n", e.getEditable().getName());
         }
 
         if (name.equals(INVALID_NAME)) {
@@ -273,7 +274,7 @@ public class Editor {
                 }
             }
 
-            System.out.format("List length: %d\n", oneItemList.size());
+            System.out.format("---------- List length: %d\n", oneItemList.size());
             return oneItemList;
         }
     }
@@ -393,21 +394,51 @@ public class Editor {
     }
 
     @GetMapping(value = "/sites")
-    private List<Site> getSites(@RequestParam(name = "index", defaultValue = "-1") int index) {
-        if (index == -1) {
-            return sites;
+    private List<Site> getSites(@RequestParam(name = "index", defaultValue = INVALID_INDEX) int index,
+                                @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
+
+        if (name.equals(INVALID_NAME)) {
+            if (index == -1) {
+                return sites;
+            } else {
+                List<Site> oneItemList = new LinkedList<>();
+                oneItemList.add(sites.get(index));
+                return oneItemList;
+            }
         } else {
             List<Site> oneItemList = new LinkedList<>();
-            oneItemList.add(sites.get(index));
-            return oneItemList;
+            for (Site site : sites) {
+                if (site.getEditable().toString().equals(name)) {
+                    oneItemList.add(site);
+                }
+            }
+            if (oneItemList.size() == 1) {
+                return oneItemList;
+            } else {
+                return null;
+            }
         }
     }
 
     @DeleteMapping(value = "/sites")
-    private void removeSite(@RequestParam(name = "index", defaultValue = "-1") int index) {
+    private void removeSite(@RequestParam(name = "index", defaultValue = INVALID_INDEX) int index,
+                            @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
 
         if (index != -1) {
-            currentBuilder.removeRoot(index);
+            currentBuilder.closeSite(index);
+        } else if (!name.equals(INVALID_NAME)) {
+            boolean deleted = false;
+            for (Site site : sites) {
+                if (site.getEditable().toString().equals(name)) {
+                    currentBuilder.closeSite(site);
+                    deleted = true;
+                }
+            }
+            if (deleted) {
+                System.out.format("Site '%s'specified deleted with success!\n", name);
+            } else {
+                System.out.format("Site '%s' specified not found...Try again with another name.\n", name);
+            }
         } else {
             System.out.println("Index of the site to delete not specified... Try again by specifing the index");
         }
@@ -593,5 +624,11 @@ public class Editor {
         }
 
         return null;
+    }
+
+    private void test(DirectedBigraphBuilder builder) {
+
+        //builder.
+
     }
 }

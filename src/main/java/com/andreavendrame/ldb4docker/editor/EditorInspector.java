@@ -6,8 +6,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.nodes;
-import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.outerNames;
+import java.util.List;
+
+import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.*;
+import static com.andreavendrame.ldb4docker.editor.Editor.INVALID_INDEX;
+import static com.andreavendrame.ldb4docker.editor.Editor.INVALID_NAME;
 
 @RestController
 @RequestMapping(value = "/inspector")
@@ -98,25 +101,73 @@ public class EditorInspector {
      * il parametro {@param index} è valido, mentre la lista di tutte le istanze di site con i parent direttamente connessi altrimenti
      */
     @GetMapping(value = "/showSites")
-    private String showSites(@RequestParam(value = "index", defaultValue = "-1") int index) {
-        StringBuilder stringBuilder = new StringBuilder();
+    private String showSites(@RequestParam(value = "index", defaultValue = INVALID_INDEX) int index,
+                             @RequestParam(value =  "name", defaultValue = INVALID_NAME) String name) {
 
-        if (index != -1) {
-            EditableSite editableSite = EditingEnvironment.sites.get(index).getEditable();
-            stringBuilder.append("<-- Site: '").append(editableSite.toString()).append("'").append(", ");
-            stringBuilder.append("[parent: '").append(editableSite.getParent().toString()).append("]");
-            stringBuilder.append(" -->");
+        StringBuilder stringBuilder = new StringBuilder();
+        if (name.equals(INVALID_NAME)) {
+            if (index != -1) {
+                EditableSite editableSite = EditingEnvironment.sites.get(index).getEditable();
+                addSiteInformation(stringBuilder, editableSite);
+            } else {
+                for (Site site : EditingEnvironment.sites) {
+                    EditableSite editableSite = site.getEditable();
+                    addSiteInformation(stringBuilder, editableSite);
+                }
+            }
         } else {
-            for (Root root : EditingEnvironment.roots) {
-                EditableRoot editableRoot = root.getEditable();
-                stringBuilder.append("'").append(editableRoot.toString()).append("'");
-                stringBuilder.append(" - Children: [");
-                addChildrenInformation(stringBuilder, editableRoot);
-                stringBuilder.append("] ");
+            Site targetSite = null;
+            for (Site site : sites) {
+                if (site.getEditable().toString().equals(name)) {
+                    targetSite = site;
+                }
+            }
+            if (targetSite == null) {
+                stringBuilder.append("No site founded with name '").append(name).append("'...");
+            } else {
+                addSiteInformation(stringBuilder, targetSite.getEditable());
             }
         }
 
         return stringBuilder.toString();
+    }
+
+    /**
+     * @param index of the edge to inspect, if invalid all the edges have to be inspected
+     * @param name name of the edge to inspect
+     * @return a description of the edge/s got
+     *
+     */
+    @GetMapping(value = "/showEdges")
+    private String showEdges(@RequestParam(value = "index", defaultValue = INVALID_INDEX) int index,
+                             @RequestParam(value =  "name", defaultValue = INVALID_NAME) String name) {
+
+        List<Edge> edges;
+        StringBuilder stringBuilder = new StringBuilder();
+
+        if (name.equals(INVALID_NAME)) {
+            if (index == -1) {
+                edges = Editor.getEdges(INVALID_NAME, -1);
+                for (Edge edge : edges) {
+                    addEdgeInformation(stringBuilder, edge.getEditable());
+                }
+            } else {
+                edges = Editor.getEdges(INVALID_NAME, index);
+                EditableEdge editableEdge = edges.get(index).getEditable();
+                addEdgeInformation(stringBuilder, editableEdge);
+            }
+        } else {
+            Edge targetEdge = Editor.getEdges(name, -1).get(0);
+            addEdgeInformation(stringBuilder, targetEdge.getEditable());
+        }
+
+        return stringBuilder.toString();
+    }
+
+    private void addSiteInformation(StringBuilder stringBuilder, EditableSite editableSite) {
+        stringBuilder.append("<-- Site: '").append(editableSite.toString()).append("'").append(", ");
+        stringBuilder.append("[parent: '").append(editableSite.getParent().toString()).append("]");
+        stringBuilder.append(" -->");
     }
 
     private void addOuterNameDescription(StringBuilder stringBuilder, int i) {
@@ -129,5 +180,10 @@ public class EditorInspector {
             stringBuilder.append("'").append(editableChild.toString()).append("'");
             stringBuilder.append(", ");
         });
+    }
+
+    private static void addEdgeInformation(StringBuilder stringBuilder, EditableEdge editableEdge) {
+
+        stringBuilder.append("Edge: '").append(editableEdge.getName()).append("', ");
     }
 }
