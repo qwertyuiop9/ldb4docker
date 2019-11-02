@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedList;
 import java.util.List;
 
 import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.*;
@@ -20,12 +21,13 @@ public class EditorInspector {
     private String showNodes(@RequestParam(value = "nodeIndex", defaultValue = "-1") int nodeIndex) {
 
         StringBuilder stringBuilder = new StringBuilder();
+        List<Node> nodes = new LinkedList<>(currentBuilder.getNodes());
 
         if (nodeIndex != -1 ) {
-            addNodeDescription(stringBuilder, nodeIndex);
+            addNodeDescription(stringBuilder, nodeIndex, nodes);
         } else {
-            for (int i = 0; i< EditingEnvironment.nodes.size(); i++) {
-                addNodeDescription(stringBuilder, i);
+            for (int i = 0; i< nodes.size(); i++) {
+                addNodeDescription(stringBuilder, i, nodes);
             }
         }
 
@@ -37,8 +39,8 @@ public class EditorInspector {
      * @param stringBuilder in cui salvare le informazioni del nodo considerato
      * @param i indice del nodo nella lista interna all'editor
      */
-    private void addNodeDescription(StringBuilder stringBuilder, int i) {
-        Node currentNode = EditingEnvironment.nodes.get(i);
+    private void addNodeDescription(StringBuilder stringBuilder, int i, List<Node> nodes) {
+        Node currentNode = nodes.get(i);
         stringBuilder.append("<<--- NODE (").append(i).append( ") '").append(currentNode.getName()).append("' - ");
         stringBuilder.append("Parent: ' ").append(currentNode.getParent().getEditable().toString()).append("' ");
         stringBuilder.append("- Out ports [ ");
@@ -62,12 +64,14 @@ public class EditorInspector {
     private String showRoots(@RequestParam(value = "index", defaultValue = "-1") int index) {
         StringBuilder stringBuilder = new StringBuilder();
 
+        List<Root> roots = new LinkedList<>(currentBuilder.getRoots());
+
         if (index != -1) {
-            EditableRoot editableRoot = EditingEnvironment.roots.get(index).getEditable();
+            EditableRoot editableRoot = roots.get(index).getEditable();
             stringBuilder.append("'").append(editableRoot.toString()).append("'").append(" --> ");
             addChildrenInformation(stringBuilder, editableRoot);
         } else {
-            for (Root root : EditingEnvironment.roots) {
+            for (Root root : roots) {
                 EditableRoot editableRoot = root.getEditable();
                 stringBuilder.append("'").append(editableRoot.toString()).append("'");
                 stringBuilder.append(" - Children: [");

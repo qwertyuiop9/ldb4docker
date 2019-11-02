@@ -70,17 +70,15 @@ public class Editor {
      * @return the newly added root if it has been possible to add it without errors
      */
     @PostMapping(value = "/roots")
-    private Object addRoot(@RequestParam(value = "locality", defaultValue = "-1") int locality) {
+    private Root addRoot(@RequestParam(value = "locality", defaultValue = "-1") int locality) {
         System.out.println("Indice della radice: " + locality);
         Root root;
         if (locality == -1) {
-            // Aggiungo una radice senza località
+            // Add a root at the last locality
             root = currentBuilder.addRoot();
-            roots.add(root);
         } else {
-            // Aggiungo una radice con località
+            // Adding a root at the selected locality (if valid)
             root = currentBuilder.addRoot(locality);
-            roots.add(locality, root);
         }
         return root;
     }
@@ -100,17 +98,20 @@ public class Editor {
     private List<Root> getRoot(@RequestParam(name = "index", defaultValue = "-1") int index,
                                @RequestParam(name = "name", defaultValue = INVALID_NAME) String rootName) {
 
-        List<Root> oneItemList = new LinkedList<>();
+        List<Root> rootList = new LinkedList<>();
         if (rootName.equals(INVALID_NAME)) {
             if (index == -1) {
-                return roots;
+                return new LinkedList<>(currentBuilder.getRoots());
             } else {
-                oneItemList.add(currentBuilder.getRoots().get(index));
-                return oneItemList;
+                rootList = new LinkedList<>(currentBuilder.getRoots());
+                Root selectedRoot = rootList.get(index);
+                rootList.clear();
+                rootList.add(selectedRoot);
+                return rootList;
             }
         } else {
-            oneItemList.add(getRootByName(rootName));
-            return oneItemList;
+            rootList.add(getRootByName(rootName));
+            return rootList;
         }
     }
 
@@ -286,9 +287,9 @@ public class Editor {
         List<Node> oneItemList = new LinkedList<>();
         if (name.equals(INVALID_NAME)) {
             if (index == -1) {
-                return nodes;
+                return new LinkedList<>(currentBuilder.getNodes());
             } else {
-                oneItemList.add(nodes.get(index));
+                oneItemList.add(new LinkedList<>(currentBuilder.getNodes()).get(index));
                 return oneItemList;
             }
         } else {
@@ -317,7 +318,7 @@ public class Editor {
                          @RequestParam(name = "parentName", defaultValue = "") String parentName) {
 
         Node resultNode;
-        Parent parent;
+        Parent parent = null;
         System.out.format("---------- Parent type '%s', ", parentType);
         if (parentType.equals(INVALID_TYPE)) {
             parent = getParentByName(parentName);
@@ -325,13 +326,13 @@ public class Editor {
             if (parentIndex != -1) {
                 switch (parentType) {
                     case PARENT_NODE:
-                        parent = nodes.get(parentIndex);
+                        parent = new LinkedList<>(currentBuilder.getNodes()).get(parentIndex);
                         break;
                     case PARENT_ROOT:
-                        parent = roots.get(parentIndex);
+                        parent = new LinkedList<>(currentBuilder.getNodes()).get(parentIndex);
                         break;
                     case PARENT_EDITABLE_PARENT:
-                        parent = editableParents.get(parentIndex);
+                        //parent = editableParents.get(parentIndex);
                         break;
                     default:
                         parent = null;
@@ -346,7 +347,7 @@ public class Editor {
                         parent = getRootByName(parentName);
                         break;
                     case PARENT_EDITABLE_PARENT:
-                        parent = getEditableParentByName(parentName);
+                        //parent = getEditableParentByName(parentName);
                         break;
                     default:
                         parent = null;
@@ -356,8 +357,7 @@ public class Editor {
         }
 
         resultNode = currentBuilder.addNode(controlName, parent);
-        nodes.add(resultNode);
-        System.out.println("Number of nodes in the list: " + nodes.size());
+        System.out.println("Number of nodes in the list: " + new LinkedList<>(currentBuilder.getNodes()).size());
         return resultNode;
 
     }
@@ -374,13 +374,14 @@ public class Editor {
             switch (parentType) {
 
                 case PARENT_NODE:
-                    parentNode = nodes.get(parentIndex);
+                    parentNode = new LinkedList<>(currentBuilder.getNodes()).get(parentIndex);
                     break;
                 case PARENT_ROOT:
                     parentNode = currentBuilder.getRoots().get(parentIndex);
                     break;
                 case PARENT_EDITABLE_PARENT:
-                    parentNode = editableParents.get(parentIndex);
+                    //parentNode = editableParents.get(parentIndex);
+                    parentNode = null;
                     break;
             }
         } else {
@@ -463,7 +464,7 @@ public class Editor {
             if (nodeIndex == -1) {
                 System.out.println("Indice del nodo non valido");
             } else {
-                Node selectedNode = nodes.get(nodeIndex);
+                Node selectedNode = new LinkedList<>(currentBuilder.getNodes()).get(nodeIndex);
                 selectedNode.getOutPort(portMode).getEditable().setHandle(selectedHandle.getEditable());
                 System.out.format("Collegato '%s' al nodo %s!\n", selectedHandle.toString(), selectedNode.toString());
             }
@@ -509,7 +510,8 @@ public class Editor {
             case HANDLE_OUTER_NAME:
                 return outerNames.get(handleIndex);
             case HANDLE_EDITABLE_HANDLE:
-                return editableHandles.get(handleIndex);
+                return null;
+                //return editableHandles.get(handleIndex);
             case HANDLE_IN_PORT:
                 return inPorts.get(handleIndex);
             default:
@@ -540,12 +542,11 @@ public class Editor {
      */
     private Root getRootByName(String rootName) {
         Root requestedRoot = null;
-        for (Root root : roots) {
+        for (Root root : currentBuilder.getRoots()) {
             if (root.toString().equals(rootName)) {
                 requestedRoot = root;
             }
         }
-
         return requestedRoot;
     }
 
@@ -555,7 +556,7 @@ public class Editor {
      */
     private Node getNodeByName(String nodeName) {
         Node requestedNode = null;
-        for (Node node : nodes) {
+        for (Node node : new LinkedList<>(currentBuilder.getNodes())) {
             if (node.toString().equals(nodeName)) {
                 requestedNode = node;
             }
@@ -570,35 +571,55 @@ public class Editor {
     @PostMapping(value = "reset")
     private void resetCurrentBuilderToZero() {
 
-        outerNames = new LinkedList<>();
-        innerNames = new LinkedList<>();
-        sites = new LinkedList<>();
-        nodes = new LinkedList<>();
-        editableParents = new LinkedList<>();
-        bigraphControls = new LinkedList<>();
-        services = new LinkedList<>();
-        editableHandles = new LinkedList<>();
-        inPorts = new LinkedList<>();
-        roots = new LinkedList<>();
+        outerNames.clear();
+        innerNames.clear();
+        sites.clear();
+        bigraphControls.clear();
+        services.clear();
+        inPorts.clear();
+        points.clear();
 
         currentSignature = null;
         currentBuilder = null;
 
     }
 
-    /**
-     * @param editableParentName name of the editableParent to get. Every node name must be unique for the considered builder
-     * @return the editableParent searched if it is present in the list, null else
-     */
-    private EditableParent getEditableParentByName(String editableParentName) {
-        EditableParent requestedEditableParent = null;
-        for (EditableParent editableParent : editableParents) {
-            if (editableParent.toString().equals(editableParentName)) {
-                requestedEditableParent = editableParent;
-            }
-        }
+    @GetMapping("/isClosed")
+    private boolean isClosed() { return currentBuilder.isClosed(); }
 
-        return requestedEditableParent;
+    @GetMapping("/isEmpty")
+    private boolean isEmpty() { return currentBuilder.isEmpty(); }
+
+    @GetMapping("/isGround")
+    private boolean isGround() { return currentBuilder.isGround(); }
+
+    @GetMapping("/containsOuterName")
+    public boolean containsOuterName(@RequestParam(value = "name", defaultValue = INVALID_NAME) String name) {
+
+        if (name.equals(INVALID_NAME)) {
+            System.out.println("The name of the 'OuterName' instance has to be specified");
+            return false;
+        } else {
+            return currentBuilder.containsOuterName(name);
+        }
+    }
+
+    @GetMapping("/containsInnerName")
+    public boolean containsInnerName(@RequestParam(value = "name", defaultValue = INVALID_NAME) String name) {
+
+        if (name.equals(INVALID_NAME)) {
+            System.out.println("The name of the 'InnerName' instance has to be specified");
+            return false;
+        } else {
+            return currentBuilder.containsInnerName(name);
+        }
+    }
+
+
+    private void test(DirectedBigraphBuilder builder) {
+
+        //builder.
+
     }
 
     /**
@@ -607,28 +628,22 @@ public class Editor {
      */
     private Parent getParentByName(String parentName) {
 
+        List<Root> roots = new LinkedList<>(currentBuilder.getRoots());
+        List<Node> nodes = new LinkedList<>(currentBuilder.getNodes());
+
         for (Root root : roots) {
             if (root.toString().equals(parentName)) {
                 return root;
             }
         }
+
         for (Node node : nodes) {
             if (node.getName().equals(parentName)) {
                 return node;
             }
         }
-        for (EditableParent editableParent : editableParents) {
-            if (editableParent.toString().equals(parentName)) {
-                return editableParent;
-            }
-        }
+
 
         return null;
-    }
-
-    private void test(DirectedBigraphBuilder builder) {
-
-        //builder.
-
     }
 }
