@@ -17,6 +17,7 @@ public class Editor {
 
     private static final String INVALID_TYPE = "noType";
     public static final String INVALID_NAME = "invalidName";
+    public static final String INVALID_HANDLE = "invalidHandle";
     public static final String INVALID_INDEX = "-1";
     public static final int INVALID_INDEX_NUMBER = -1;
 
@@ -225,13 +226,20 @@ public class Editor {
     }
 
     @GetMapping(value = "/outerNames")
-    private List<OuterName> getOuterNames(@RequestParam(name = "index", defaultValue = "-1") int index) {
+    private List<OuterName> getOuterNames(@RequestParam(name = "index", defaultValue = "-1") int index,
+                                          @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
 
-        if (index == -1) {
-            return outerNames;
+        if (name.equals(INVALID_NAME)) {
+            if (index == -1) {
+                return outerNames;
+            } else {
+                List<OuterName> oneItemList = new LinkedList<>();
+                oneItemList.add(outerNames.get(index));
+                return oneItemList;
+            }
         } else {
             List<OuterName> oneItemList = new LinkedList<>();
-            oneItemList.add(outerNames.get(index));
+            oneItemList.add(getOuterNameByName(name));
             return oneItemList;
         }
     }
@@ -363,35 +371,19 @@ public class Editor {
     }
 
     @PostMapping(value = "/sites")
-    private Site addSite(@RequestParam(name = "parentType", defaultValue = INVALID_TYPE) String parentType,
-                         @RequestParam(name = "parentIndex", defaultValue = INVALID_INDEX) int parentIndex,
-                         @RequestParam(name = "parentName", defaultValue = INVALID_NAME) String parentName) {
-
-        Site resultSite;
-        Parent parentNode = null;
+    private Site addSite(@RequestParam(name = "parentName", defaultValue = INVALID_NAME) String parentName) {
 
         if (parentName.equals(INVALID_NAME)) {
-            switch (parentType) {
-
-                case PARENT_NODE:
-                    parentNode = new LinkedList<>(currentBuilder.getNodes()).get(parentIndex);
-                    break;
-                case PARENT_ROOT:
-                    parentNode = currentBuilder.getRoots().get(parentIndex);
-                    break;
-                case PARENT_EDITABLE_PARENT:
-                    //parentNode = editableParents.get(parentIndex);
-                    parentNode = null;
-                    break;
-            }
+            return null;
         } else {
-            parentNode = getParentByName(parentName);
+            Parent parent = getParentByName(parentName);
+            return currentBuilder.addSite(parent);
         }
+    }
 
-
-        resultSite = currentBuilder.addSite(parentNode);
-        sites.add(resultSite);
-        return resultSite;
+    @GetMapping(value = "/parents")
+    private Parent getParent(@RequestParam( name = "parentName", defaultValue = INVALID_NAME) String parentName) {
+        return getParentByName(parentName);
     }
 
     @GetMapping(value = "/sites")
@@ -537,35 +529,6 @@ public class Editor {
     }
 
     /**
-     * @param rootName name of the root to get. Every root name must be unique for the considered builder
-     * @return the root searched if it is present in the list, null else
-     */
-    private Root getRootByName(String rootName) {
-        Root requestedRoot = null;
-        for (Root root : currentBuilder.getRoots()) {
-            if (root.toString().equals(rootName)) {
-                requestedRoot = root;
-            }
-        }
-        return requestedRoot;
-    }
-
-    /**
-     * @param nodeName name of the node to get. Every node name must be unique for the considered builder
-     * @return the node searched if it is present in the list, null else
-     */
-    private Node getNodeByName(String nodeName) {
-        Node requestedNode = null;
-        for (Node node : new LinkedList<>(currentBuilder.getNodes())) {
-            if (node.toString().equals(nodeName)) {
-                requestedNode = node;
-            }
-        }
-
-        return requestedNode;
-    }
-
-    /**
      * This method will reset all the builder variables and the builder instance itself
      */
     @PostMapping(value = "reset")
@@ -622,6 +585,55 @@ public class Editor {
 
     }
 
+    @PostMapping("/addHandleToTempList")
+    private void addHandleToTemp(@RequestParam(name = "outerName", defaultValue = INVALID_HANDLE) String outerNameName,
+                                 @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
+                                 @RequestParam(name = "node", defaultValue = INVALID_HANDLE) String nodeName,
+                                 @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
+
+        if (!outerNameName.equals(INVALID_HANDLE)) {
+            // Specified an OuterName instance as Handle
+            OuterName outerName = getOuterNameByName(outerNameName);
+            if (outerName == null) {
+                System.out.println("Invalid outerName specified");
+            } else {
+                tempHandle.add(new NamedHandle(outerName, outerNameName));
+                System.out.format("OuterName '%s' added to the temporary handle list\n", outerName.getName());
+            }
+        } else if (!edgeName.equals(INVALID_HANDLE)) {
+            // Specified an Edge instance as Handle
+            Edge edge = getEdgeByName(edgeName);
+            if (edge == null) {
+                System.out.println("Invalid edge specified");
+            } else {
+                tempHandle.add(new NamedHandle(edge, edgeName));
+                System.out.format("Edge '%s' added to the temporary handle list\n", edge.getEditable().getName());
+            }
+        } else if (!nodeName.equals(INVALID_HANDLE)) {
+            // Specified a InPort instance as Handle
+            Node node = getNodeByName(nodeName);
+            System.out.format("Node '%s' selected", node.getName());
+            if (portIndex != -1) {
+                InPort inPort =  node.getInPort(portIndex);
+                if (inPort == null) {
+                    System.out.println("Invalid port index or node name specified");
+                } else {
+                    System.out.format("InPort number '%d' (of node '%s') added to the temporary handle list\n", inPort.getNumber(), inPort.getNode().getName());
+                    tempHandle.add(new NamedHandle(inPort, "Node " + nodeName + ", port " + portIndex));
+                }
+            } else {
+                System.out.println("Please specify a port index");
+            }
+        } else {
+            System.out.println("No valid handle specified...");
+        }
+    }
+
+    @PostMapping("/clearTempHandleList")
+    private void clearTempHandleList() {
+        tempHandle.clear();
+    }
+
     /**
      * @param parentName name of the parent to search
      * @return the searched parent if it has been founded, null else
@@ -646,4 +658,76 @@ public class Editor {
 
         return null;
     }
+
+    /**
+     * @param rootName name of the root to get. Every root name must be unique for the considered builder
+     * @return the root searched if it is present in the list, null else
+     */
+    private Root getRootByName(String rootName) {
+        Root requestedRoot = null;
+        for (Root root : currentBuilder.getRoots()) {
+            if (root.toString().equals(rootName)) {
+                requestedRoot = root;
+            }
+        }
+        return requestedRoot;
+    }
+
+    /**
+     * @param nodeName name of the node to get. Every node name must be unique for the considered builder
+     * @return the node searched if it is present in the list, null else
+     */
+    private Node getNodeByName(String nodeName) {
+        Node requestedNode = null;
+        for (Node node : new LinkedList<>(currentBuilder.getNodes())) {
+            if (node.getName().equals(nodeName)) {
+                requestedNode = node;
+            }
+        }
+
+        return requestedNode;
+    }
+
+    /**
+     * @param name of the OuterName instance to get
+     * @return the OuterName instance if founded, null else
+     */
+    private OuterName getOuterNameByName(String name) {
+        OuterName selectedOuterName = null;
+        for (OuterName outerName : outerNames) {
+            if (outerName.getName().equals(name)) {
+                selectedOuterName = outerName;
+            }
+        }
+        return selectedOuterName;
+    }
+
+    /**
+     * @param name of the InnerName instance to get
+     * @return the InnerName instance if founded, null else
+     */
+    private InnerName getInnerNameByName(String name) {
+        InnerName selectedInnerName = null;
+        for (InnerName innerName : innerNames) {
+            if (innerName.getName().equals(name)) {
+                selectedInnerName = innerName;
+            }
+        }
+        return selectedInnerName;
+    }
+
+    /**
+     * @param name of the Edge instance to get
+     * @return the Edge instance if founded, null else
+     */
+    private Edge getEdgeByName(String name) {
+        Edge selectedEdge = null;
+        for (Edge edge : new LinkedList<>(currentBuilder.getEdges())) {
+            if (edge.getEditable().getName().equals(name)) {
+                selectedEdge = edge;
+            }
+        }
+        return selectedEdge;
+    }
+
 }
