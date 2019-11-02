@@ -21,6 +21,9 @@ public class Editor {
     public static final String INVALID_INDEX = "-1";
     public static final int INVALID_INDEX_NUMBER = -1;
 
+    public static final String INNER_INTERFACE = "inner";
+    public static final String OUTER_INTERFACE = "outer";
+
     @Autowired
     private RestTemplate restTemplate;
 
@@ -146,24 +149,27 @@ public class Editor {
     /**
      * @param locality to use
      * @param name of the innerName to create
-     * @param edgeIndex if specified this parameter, an instance of "Edge", will be used as the "Handle" parameter
-     * @param outerNameIndex if specified this parameter, an instance of "OuterName", will be used as the "Handle" parameter
-     * @param inPortIndex if specified this parameter, an instance of "InPort", will be used as the "Handle" parameter
+     * @param outerNameName if specified this parameter, an instance of "Edge", will be used as the "Handle" parameter
+     * @param edgeName if specified this parameter, an instance of "OuterName", will be used as the "Handle" parameter
+     * @param nodeName if specified this parameter, an instance of "InPort", will be used as the "Handle" parameter
+     * @param portIndex index of the port to use as Handle
      * @return the new innerName
      */
     @PostMapping(value = "/addDescNameOuterInterface")
     private InnerName addDescNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int locality,
                                                 @RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
-                                                @RequestParam(name = "edgeIndex", defaultValue = INVALID_INDEX ) int edgeIndex,
-                                                @RequestParam(name = "outerNameIndex", defaultValue = INVALID_INDEX) int outerNameIndex,
-                                                @RequestParam(name = "inPortIndex", defaultValue = INVALID_INDEX) int inPortIndex) {
+                                                @RequestParam(name = "outerName", defaultValue = INVALID_NAME ) String outerNameName,
+                                                @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
+                                                @RequestParam(name = "node", defaultValue = INVALID_HANDLE) String nodeName,
+                                                @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
         InnerName innerName;
 
         if (locality == -1) {
+            // Invalid locality
             System.out.println("Method 'addDescNameOuterInterface' invalid 'locality parameter");
-            innerName = currentBuilder.addDescNameOuterInterface(locality);
+            return null;
         } else {
-            Handle handle = getHandle(outerNameIndex, edgeIndex, inPortIndex);
+            Handle handle = getHandle(outerNameName, edgeName, nodeName, portIndex);
             if (handle != null && name.equals(INVALID_NAME)) {
                 innerName = currentBuilder.addDescNameOuterInterface(locality, handle);
             } else if (!name.equals(INVALID_NAME) && handle == null) {
@@ -200,23 +206,31 @@ public class Editor {
     }
 
     @PostMapping(value = "/addAscNameInnerInterface")
-    private InnerName addAscNameInnerInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
-                                               @RequestParam(name = "name", defaultValue = "") String name,
-                                               @RequestParam(name = "handleType", defaultValue = "") String handleType,
-                                               @RequestParam(name = "handleIndex", defaultValue = "-1") int handleIndex) {
+    private InnerName addAscNameInnerInterface(@RequestParam(name = "locality", defaultValue = "-1") int locality,
+                                               @RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
+                                               @RequestParam(name = "outerName", defaultValue = INVALID_NAME ) String outerNameName,
+                                               @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
+                                               @RequestParam(name = "node", defaultValue = INVALID_HANDLE) String nodeName,
+                                               @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
 
-        if (localityIndex == INVALID_INDEX_NUMBER) {
+        InnerName innerName;
+
+        if (locality == -1) {
             return null;
         } else {
-            if (name.equals("") && handleIndex == -1) {     // Solo la località specificata
-                return currentBuilder.addAscNameInnerInterface(localityIndex);
-            } else if (name.equals("")) {                   // Località e Handle specificati
-                return currentBuilder.addAscNameInnerInterface(localityIndex, getHandle(handleType, handleIndex));
-            } else if (handleIndex == -1) {                 // Località e Name specificati
-                return currentBuilder.addAscNameInnerInterface(localityIndex, name);
+            Handle handle = getHandle(outerNameName, edgeName, nodeName, portIndex);
+            if (handle != null && name.equals(INVALID_NAME)) {
+                innerName = currentBuilder.addAscNameInnerInterface(locality, handle);
+            } else if (!name.equals(INVALID_NAME) && handle == null) {
+                innerName = currentBuilder.addAscNameInnerInterface(locality, name);
+            } else if (!name.equals(INVALID_NAME)) {
+                innerName = currentBuilder.addAscNameInnerInterface(locality, name, handle);
             } else {
-                return currentBuilder.addAscNameInnerInterface(localityIndex, name, getHandle(handleType, handleIndex));
+                System.out.println("One o more parameter not valid");
+                innerName = null;
             }
+            innerNames.add(innerName);
+            return innerName;
         }
     }
 
@@ -308,63 +322,22 @@ public class Editor {
 
     /**
      * @param controlName name of the control to insert
-     * @param parentType  one between "root", "editableParent", "node"
-     * @param parentIndex index of the parent to get from the related list
-     * @param parentName  name of the parent to get from the related list
-     *                    Method notes:
-     *                    - The parameter "controlName" must be always setted
-     *                    Method uses - Parameter combinations:
-     *                    1) "parentType" + "parentIndex"
-     *                    2) "parentType" + "parentName"
-     *                    3) "name" only
+     * @param parentName  name of the parent the node will be attached to
+     * @param useTempHandleList set to true if you want to use the tempHandle list
      * @return the insertion resulting node
      */
     @PostMapping(value = "/nodes")
     private Node addNode(@RequestParam(name = "controlName") String controlName,
-                         @RequestParam(name = "parentType", defaultValue = INVALID_TYPE) String parentType,
-                         @RequestParam(name = "parentIndex", defaultValue = "-1") int parentIndex,
-                         @RequestParam(name = "parentName", defaultValue = "") String parentName) {
+                         @RequestParam(name = "parentName", defaultValue = INVALID_NAME) String parentName,
+                         @RequestParam(name = "useTempHandleList", defaultValue = "false") boolean useTempHandleList) {
 
         Node resultNode;
-        Parent parent = null;
-        System.out.format("---------- Parent type '%s', ", parentType);
-        if (parentType.equals(INVALID_TYPE)) {
-            parent = getParentByName(parentName);
+        Parent parent = getParentByName(parentName);
+        if (useTempHandleList) {
+            resultNode = currentBuilder.addNode(controlName, parent, NamedHandle.getHandleList(tempHandle));
         } else {
-            if (parentIndex != -1) {
-                switch (parentType) {
-                    case PARENT_NODE:
-                        parent = new LinkedList<>(currentBuilder.getNodes()).get(parentIndex);
-                        break;
-                    case PARENT_ROOT:
-                        parent = new LinkedList<>(currentBuilder.getNodes()).get(parentIndex);
-                        break;
-                    case PARENT_EDITABLE_PARENT:
-                        //parent = editableParents.get(parentIndex);
-                        break;
-                    default:
-                        parent = null;
-                        break;
-                }
-            } else {
-                switch (parentType) {
-                    case PARENT_NODE:
-                        parent = getNodeByName(parentName);
-                        break;
-                    case PARENT_ROOT:
-                        parent = getRootByName(parentName);
-                        break;
-                    case PARENT_EDITABLE_PARENT:
-                        //parent = getEditableParentByName(parentName);
-                        break;
-                    default:
-                        parent = null;
-                        break;
-                }
-            }
+            resultNode = currentBuilder.addNode(controlName, parent);
         }
-
-        resultNode = currentBuilder.addNode(controlName, parent);
         System.out.println("Number of nodes in the list: " + new LinkedList<>(currentBuilder.getNodes()).size());
         return resultNode;
 
@@ -437,31 +410,6 @@ public class Editor {
         }
     }
 
-    /**
-     * @param nodeIndex   index of the node to which to connect the handle
-     * @param portMode    how to connect the handle to the node: 0 for READ_MODE, 1 for WRITE_MODE
-     * @param handleType  handle type in the set {"outerName", "editableHandle", "inPort", "edge"}
-     * @param handleIndex index of the handle in its relative list
-     */
-    @PostMapping(value = "/linkNameToNode")
-    private void linkNameToNode(@RequestParam(name = "nodeIndex", defaultValue = "-1") int nodeIndex,
-                                @RequestParam(name = "portMode", defaultValue = "-1") int portMode,
-                                @RequestParam(name = "handleType") String handleType,
-                                @RequestParam(name = "handleIndex") int handleIndex) {
-
-        if (portMode < 0 || portMode > 1) {
-            System.out.println("Modalità di collegamento non valida. Scegliere 0 per READ o 1 per WRITE.");
-        } else {
-            Handle selectedHandle = getHandle(handleType, handleIndex);
-            if (nodeIndex == -1) {
-                System.out.println("Indice del nodo non valido");
-            } else {
-                Node selectedNode = new LinkedList<>(currentBuilder.getNodes()).get(nodeIndex);
-                selectedNode.getOutPort(portMode).getEditable().setHandle(selectedHandle.getEditable());
-                System.out.format("Collegato '%s' al nodo %s!\n", selectedHandle.toString(), selectedNode.toString());
-            }
-        }
-    }
 
     @GetMapping(value = "/innerInterfaces")
     private Interface getInnerInterface() {
@@ -472,7 +420,6 @@ public class Editor {
     private Interface getOuterInterface() {
         return currentBuilder.getOuterInterface();
     }
-
 
     @GetMapping(value = "services")
     private List<String> gerServices(@RequestParam(value = "index", defaultValue = "-1") int index) {
@@ -492,43 +439,6 @@ public class Editor {
     }
 
     /**
-     * @param handleType  a type between "outerName", "editableHandle", "inPort", "edge"
-     * @param handleIndex index of the handle in the selected list
-     * @return the selected handle instance
-     */
-    private Handle getHandle(String handleType, int handleIndex) {
-
-        switch (handleType) {
-            case HANDLE_OUTER_NAME:
-                return outerNames.get(handleIndex);
-            case HANDLE_EDITABLE_HANDLE:
-                return null;
-                //return editableHandles.get(handleIndex);
-            case HANDLE_IN_PORT:
-                return inPorts.get(handleIndex);
-            default:
-                return getEdges(INVALID_NAME, handleIndex).get(0);
-        }
-
-    }
-
-    private Handle getHandle(int outerNameIndex, int edgeIndex, int editableInPortIndex) {
-        if (outerNameIndex != INVALID_INDEX_NUMBER && edgeIndex == INVALID_INDEX_NUMBER && editableInPortIndex == INVALID_INDEX_NUMBER) {
-            // Selected an outerName as handle
-            return outerNames.get(outerNameIndex);
-        } else if (outerNameIndex == INVALID_INDEX_NUMBER && edgeIndex != INVALID_INDEX_NUMBER && editableInPortIndex == INVALID_INDEX_NUMBER) {
-            // Selected an edge as handle
-            return getEdges(INVALID_NAME, edgeIndex).get(0);
-        } else if (outerNameIndex == INVALID_INDEX_NUMBER && edgeIndex == INVALID_INDEX_NUMBER && editableInPortIndex != INVALID_INDEX_NUMBER) {
-            // Selected a inPort as handle
-            return inPorts.get(editableInPortIndex);
-        } else {
-            System.out.println("Method 'getHandle' - Select only one type of handle");
-            return null;
-        }
-    }
-
-    /**
      * This method will reset all the builder variables and the builder instance itself
      */
     @PostMapping(value = "reset")
@@ -539,7 +449,6 @@ public class Editor {
         sites.clear();
         bigraphControls.clear();
         services.clear();
-        inPorts.clear();
         points.clear();
 
         currentSignature = null;
@@ -593,20 +502,20 @@ public class Editor {
 
         if (!outerNameName.equals(INVALID_HANDLE)) {
             // Specified an OuterName instance as Handle
-            OuterName outerName = getOuterNameByName(outerNameName);
+            OuterName outerName = (OuterName) getHandle(outerNameName, edgeName, nodeName, portIndex);
             if (outerName == null) {
                 System.out.println("Invalid outerName specified");
             } else {
-                tempHandle.add(new NamedHandle(outerName, outerNameName));
+                tempHandle.add(new NamedHandle(outerName, "OuterName: " + outerNameName));
                 System.out.format("OuterName '%s' added to the temporary handle list\n", outerName.getName());
             }
         } else if (!edgeName.equals(INVALID_HANDLE)) {
             // Specified an Edge instance as Handle
-            Edge edge = getEdgeByName(edgeName);
+            Edge edge = (Edge) getHandle(outerNameName, edgeName, nodeName, portIndex);
             if (edge == null) {
                 System.out.println("Invalid edge specified");
             } else {
-                tempHandle.add(new NamedHandle(edge, edgeName));
+                tempHandle.add(new NamedHandle(edge, "Edge: " + edgeName));
                 System.out.format("Edge '%s' added to the temporary handle list\n", edge.getEditable().getName());
             }
         } else if (!nodeName.equals(INVALID_HANDLE)) {
@@ -614,12 +523,12 @@ public class Editor {
             Node node = getNodeByName(nodeName);
             System.out.format("Node '%s' selected", node.getName());
             if (portIndex != -1) {
-                InPort inPort =  node.getInPort(portIndex);
+                InPort inPort = (InPort) getHandle(outerNameName, edgeName, nodeName, portIndex);
                 if (inPort == null) {
                     System.out.println("Invalid port index or node name specified");
                 } else {
                     System.out.format("InPort number '%d' (of node '%s') added to the temporary handle list\n", inPort.getNumber(), inPort.getNode().getName());
-                    tempHandle.add(new NamedHandle(inPort, "Node " + nodeName + ", port " + portIndex));
+                    tempHandle.add(new NamedHandle(inPort, "Node: " + nodeName + ", port: " + portIndex));
                 }
             } else {
                 System.out.println("Please specify a port index");
@@ -629,10 +538,62 @@ public class Editor {
         }
     }
 
-    @PostMapping("/clearTempHandleList")
-    private void clearTempHandleList() {
-        tempHandle.clear();
+    @GetMapping("/handles")
+    private Handle getHandle(@RequestParam(name = "outerName", defaultValue = INVALID_HANDLE) String outerNameName,
+                             @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
+                             @RequestParam(name = "node", defaultValue = INVALID_HANDLE) String nodeName,
+                             @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
+
+        Handle resultHandle = null;
+
+        if (!outerNameName.equals(INVALID_HANDLE)) {
+            // Specified an OuterName instance as Handle
+            resultHandle = getOuterNameByName(outerNameName);
+        } else if (!edgeName.equals(INVALID_HANDLE)) {
+            // Specified an Edge instance as Handle
+            resultHandle = getEdgeByName(edgeName);
+        } else if (!nodeName.equals(INVALID_HANDLE)) {
+            // Specified a InPort instance as Handle
+            Node associatedNode = getNodeByName(nodeName);
+            System.out.format("Node '%s' selected", associatedNode.getName());
+            if (portIndex != -1) {
+                resultHandle =  associatedNode.getInPort(portIndex);
+            } else {
+                System.out.println("Please specify a port index");
+            }
+        } else {
+            System.out.println("No valid handle specified...");
+        }
+
+        return resultHandle;
     }
+
+    @PostMapping("/clearTempHandleList")
+    private void clearTempHandleList() { tempHandle.clear(); }
+
+    @DeleteMapping("outerNames")
+    private Edge closeOuterNameFromInterface(@RequestParam(name = "outerName", defaultValue = INVALID_NAME) String outerNameName,
+                                              @RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
+                                              @RequestParam(name = "interface") String interfaceType) {
+
+        OuterName outerNameToDelete = getOuterNameByName(outerNameName);
+        Edge resultEdge = null;
+        if (outerNameToDelete == null) {
+            System.out.format("No outerName founded with the name '%s'\n", outerNameName);
+        } else {
+            if (interfaceType.equals(OUTER_INTERFACE)) {
+                resultEdge = currentBuilder.closeOuterNameOuterInterface(locality, outerNameToDelete);
+            } else if (interfaceType.equals(INNER_INTERFACE)) {
+                resultEdge = currentBuilder.closeOuterNameInnerInterface(locality, outerNameToDelete);
+            } else {
+                return null;
+            }
+        }
+
+        return resultEdge;
+    }
+
+
 
     /**
      * @param parentName name of the parent to search

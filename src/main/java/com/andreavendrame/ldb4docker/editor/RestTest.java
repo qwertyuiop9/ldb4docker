@@ -91,8 +91,8 @@ public class RestTest {
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/start-editing", POST_REQUEST));
         // Editing the builder by adding ports, names, links ecc...
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/roots", POST_REQUEST));
-        this.testRequests.add(new MyRequest("http://localhost:8081/editor/nodes?controlName=container&parentType=root&parentName=0:r", POST_REQUEST));
-        this.testRequests.add(new MyRequest("http://localhost:8081/editor/nodes?controlName=network&parentType=root&parentName=0:r", POST_REQUEST));
+        this.testRequests.add(new MyRequest("http://localhost:8081/editor/nodes?controlName=container&parentName=0:r", POST_REQUEST));
+        this.testRequests.add(new MyRequest("http://localhost:8081/editor/nodes?controlName=network&parentName=0:r", POST_REQUEST));
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/sites?parentName=N_FA0", POST_REQUEST));
         // Make bigraph
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/makeBigraph", GET_REQUEST));

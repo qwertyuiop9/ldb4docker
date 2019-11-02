@@ -30,7 +30,6 @@ public class EditingEnvironment {
     public static List<Site> sites = new LinkedList<>();
     public static List<DirectedControl> bigraphControls = new LinkedList<>();
     public static List<String> services = new LinkedList<>();
-    public static List<InPort> inPorts = new LinkedList<>();
     public static List<Point> points = new LinkedList<>();
     // Temporary lists
     public static List<NamedHandle> tempHandle = new LinkedList<>();

@@ -190,4 +190,16 @@ public class EditorInspector {
 
         stringBuilder.append("Edge: '").append(editableEdge.getName()).append("', ");
     }
+
+    @GetMapping("/showTemporaryHandleList")
+    private static String showTemporaryHandleList() {
+
+        StringBuilder stringBuilder = new StringBuilder();
+        for (NamedHandle namedHandle : tempHandle) {
+            stringBuilder.append("[").append(namedHandle.getHandleName()).append("],");
+        }
+
+        return stringBuilder.toString();
+
+    }
 }
