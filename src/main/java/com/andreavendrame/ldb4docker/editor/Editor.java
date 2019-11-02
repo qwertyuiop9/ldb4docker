@@ -573,8 +573,8 @@ public class Editor {
 
     @DeleteMapping("outerNames")
     private Edge closeOuterNameFromInterface(@RequestParam(name = "outerName", defaultValue = INVALID_NAME) String outerNameName,
-                                              @RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
-                                              @RequestParam(name = "interface") String interfaceType) {
+                                             @RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
+                                             @RequestParam(name = "interface") String interfaceType) {
 
         OuterName outerNameToDelete = getOuterNameByName(outerNameName);
         Edge resultEdge = null;
@@ -593,7 +593,70 @@ public class Editor {
         return resultEdge;
     }
 
+    @DeleteMapping("innerNames")
+    private void closeInnerNameFromInterface(@RequestParam(name = "outerName", defaultValue = INVALID_NAME) String innerNameName,
+                                             @RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
+                                             @RequestParam(name = "interface") String interfaceType) {
 
+        InnerName innerNameToDelete = getInnerNameByName(innerNameName);
+        if (innerNameToDelete == null) {
+            System.out.format("No innerName founded with the name '%s'\n", innerNameName);
+        } else {
+            if (interfaceType.equals(OUTER_INTERFACE)) {
+                currentBuilder.closeInnerNameOuterInterface(locality, innerNameToDelete);
+            } else if (interfaceType.equals(INNER_INTERFACE)) {
+                currentBuilder.closeInnerNameInnerInterface(locality, innerNameToDelete);
+            }
+        }
+    }
+
+    @PutMapping(value = "outerNames")
+    private void renameOuterNameFromInterface(@RequestParam(name = "oldOuterName", defaultValue = INVALID_NAME) String oldOuterName,
+                                              @RequestParam(name = "newOuterName", defaultValue = INVALID_NAME) String newOuterName,
+                                              @RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
+                                              @RequestParam(name = "interface") String interfaceType) {
+
+        if (oldOuterName.equals(newOuterName)) {
+            System.out.println("The new OuterName and the old one must be different");
+        } else {
+            if (!oldOuterName.equals(INVALID_NAME) && !newOuterName.equals(INVALID_NAME)) {
+                OuterName oldOuter = getOuterNameByName(oldOuterName);
+                if (oldOuter == null) {
+                    System.out.println("The specified outerName doesn't exists");
+                } else {
+                    if (interfaceType.equals(INNER_INTERFACE)) {
+                        currentBuilder.renameOuterNameInnerInterface(locality, oldOuter, newOuterName);
+                    } else if (interfaceType.equals(OUTER_INTERFACE)) {
+                        currentBuilder.renameOuterNameOuterInterface(locality, oldOuter, newOuterName);
+                    }
+                }
+            }
+        }
+    }
+
+    @PutMapping(value = "innerNames")
+    private void renameInnerNameFromInterface(@RequestParam(name = "oldInnerName", defaultValue = INVALID_NAME) String oldInnerName,
+                                              @RequestParam(name = "newInnerName", defaultValue = INVALID_NAME) String newInnerName,
+                                              @RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
+                                              @RequestParam(name = "interface") String interfaceType) {
+
+        if (oldInnerName.equals(newInnerName)) {
+            System.out.println("The new InnerName and the old one must be different");
+        } else {
+            if (!oldInnerName.equals(INVALID_NAME) && !newInnerName.equals(INVALID_NAME)) {
+                InnerName oldInner = getInnerNameByName(oldInnerName);
+                if (oldInner == null) {
+                    System.out.println("The specified innerName doesn't exists");
+                } else {
+                    if (interfaceType.equals(INNER_INTERFACE)) {
+                        currentBuilder.renameInnerNameInnerInterface(locality, oldInner, newInnerName);
+                    } else if (interfaceType.equals(OUTER_INTERFACE)) {
+                        currentBuilder.renameInnerNameOuterInterface(locality, oldInner, newInnerName);
+                    }
+                }
+            }
+        }
+    }
 
     /**
      * @param parentName name of the parent to search
