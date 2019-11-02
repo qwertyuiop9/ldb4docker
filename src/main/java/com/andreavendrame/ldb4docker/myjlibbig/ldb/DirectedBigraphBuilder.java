@@ -183,12 +183,12 @@ final public class DirectedBigraphBuilder implements
 
     @Override
     public Interface getOuterInterface() {
-        return null;
+        return this.directedBigraph.outers;
     }
 
     @Override
     public Interface getInnerInterface() {
-        return null;
+        return this.directedBigraph.inners;
     }
 
     public boolean containsOuterName(String name) {
