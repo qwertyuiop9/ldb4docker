@@ -95,7 +95,7 @@ public class RestTest {
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/nodes?controlName=network&parentName=0:r", POST_REQUEST));
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/sites?parentName=N_FA0", POST_REQUEST));
         // Make bigraph
-        this.testRequests.add(new MyRequest("http://localhost:8081/editor/makeBigraph", GET_REQUEST));
+        this.testRequests.add(new MyRequest("http://localhost:8081/editor/makeBigraph?close=true&name=testSystem", POST_REQUEST));
         //this.testRequests.add(new MyRequest("", ""));
     }
 

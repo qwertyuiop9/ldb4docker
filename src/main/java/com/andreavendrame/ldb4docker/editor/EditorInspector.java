@@ -195,11 +195,32 @@ public class EditorInspector {
     private static String showTemporaryHandleList() {
 
         StringBuilder stringBuilder = new StringBuilder();
-        for (NamedHandle namedHandle : tempHandle) {
+        for (NamedHandle namedHandle : tempHandles) {
             stringBuilder.append("[").append(namedHandle.getHandleName()).append("],");
         }
 
         return stringBuilder.toString();
+    }
 
+    @GetMapping("/showTemporaryRootList")
+    private static String showTemporaryRootList() {
+
+        StringBuilder stringBuilder = new StringBuilder();
+        for (Root root : tempRoots) {
+            stringBuilder.append("[").append(root.getEditable().toString()).append("],");
+        }
+
+        return stringBuilder.toString();
+    }
+
+    @GetMapping("/showDirectedBigraphList")
+    private static String showDirectedBigraphList() {
+
+        StringBuilder stringBuilder = new StringBuilder();
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            stringBuilder.append("[Name: '").append(namedDirectedBigraph.getName()).append("'],");
+        }
+
+        return stringBuilder.toString();
     }
 }

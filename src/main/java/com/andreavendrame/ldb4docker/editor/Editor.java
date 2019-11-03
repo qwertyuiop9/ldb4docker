@@ -334,7 +334,7 @@ public class Editor {
         Node resultNode;
         Parent parent = getParentByName(parentName);
         if (useTempHandleList) {
-            resultNode = currentBuilder.addNode(controlName, parent, NamedHandle.getHandleList(tempHandle));
+            resultNode = currentBuilder.addNode(controlName, parent, NamedHandle.getHandleList(tempHandles));
         } else {
             resultNode = currentBuilder.addNode(controlName, parent);
         }
@@ -432,10 +432,29 @@ public class Editor {
         }
     }
 
-    @GetMapping(value = "makeBigraph")
-    private DirectedBigraph.Interface makeBigraph(@RequestParam(name = "closeBigraph", defaultValue = "false") boolean closeBigraph) {
+    @PostMapping(value = "makeBigraph")
+    private DirectedBigraph makeBigraph(@RequestParam(name = "closeBigraph", defaultValue = "false") boolean closeBigraph,
+                                                  @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
+        if (name.equals(INVALID_NAME)) {
+            System.out.println("A name for the bigraph must be specified");
+            return null;
+        }
+        boolean nameAlreadyExists = false;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(name)) {
+                nameAlreadyExists = true;
+                System.out.println("The name for the new bigraph must be unique.");
+                return null;
+            }
+        }
         DirectedBigraph resultingBigraph =  currentBuilder.makeBigraph(closeBigraph);
-        return resultingBigraph.getOuterInterface();
+        myDirectedBigraphs.add(new NamedDirectedBigraph(resultingBigraph, name));
+        return resultingBigraph;
+    }
+    @PostMapping("/clearDirectedBigraphList")
+    private String clearDirectedBigraphList() {
+        myDirectedBigraphs.clear();
+        return "DirectedBigraph list empty.";
     }
 
     /**
@@ -506,7 +525,7 @@ public class Editor {
             if (outerName == null) {
                 System.out.println("Invalid outerName specified");
             } else {
-                tempHandle.add(new NamedHandle(outerName, "OuterName: " + outerNameName));
+                tempHandles.add(new NamedHandle(outerName, "OuterName: " + outerNameName));
                 System.out.format("OuterName '%s' added to the temporary handle list\n", outerName.getName());
             }
         } else if (!edgeName.equals(INVALID_HANDLE)) {
@@ -515,7 +534,7 @@ public class Editor {
             if (edge == null) {
                 System.out.println("Invalid edge specified");
             } else {
-                tempHandle.add(new NamedHandle(edge, "Edge: " + edgeName));
+                tempHandles.add(new NamedHandle(edge, "Edge: " + edgeName));
                 System.out.format("Edge '%s' added to the temporary handle list\n", edge.getEditable().getName());
             }
         } else if (!nodeName.equals(INVALID_HANDLE)) {
@@ -528,7 +547,7 @@ public class Editor {
                     System.out.println("Invalid port index or node name specified");
                 } else {
                     System.out.format("InPort number '%d' (of node '%s') added to the temporary handle list\n", inPort.getNumber(), inPort.getNode().getName());
-                    tempHandle.add(new NamedHandle(inPort, "Node: " + nodeName + ", port: " + portIndex));
+                    tempHandles.add(new NamedHandle(inPort, "Node: " + nodeName + ", port: " + portIndex));
                 }
             } else {
                 System.out.println("Please specify a port index");
@@ -536,6 +555,24 @@ public class Editor {
         } else {
             System.out.println("No valid handle specified...");
         }
+    }
+
+    @PostMapping("/addRootToTempList")
+    private void addRootToTemp(@RequestParam(name = "name") String rootName) {
+
+        Root selectedRoot = getRootByName(rootName);
+        if (selectedRoot == null) {
+            System.out.println("The root specified doesn't exist");
+        } else {
+            tempRoots.add(selectedRoot);
+            System.out.format("Root '%s' added to the temporary root list\n", selectedRoot.toString());
+        }
+    }
+
+    @PostMapping("/clearTempRootList")
+    private String clearTempRootList() {
+        tempRoots.clear();
+        return "Root list empty.";
     }
 
     @GetMapping("/handles")
@@ -569,7 +606,10 @@ public class Editor {
     }
 
     @PostMapping("/clearTempHandleList")
-    private void clearTempHandleList() { tempHandle.clear(); }
+    private String clearTempHandleList() {
+        tempHandles.clear();
+        return "Handles list empty.";
+    }
 
     @DeleteMapping("outerNames")
     private Edge closeOuterNameFromInterface(@RequestParam(name = "outerName", defaultValue = INVALID_NAME) String outerNameName,
@@ -657,6 +697,89 @@ public class Editor {
             }
         }
     }
+
+    @PutMapping(value = "/mergeBigraph")
+    private Root merge() {
+        return currentBuilder.merge();
+    }
+
+    @PutMapping(value = "/mergeRegions")
+    private Root mergeBigraphRegions(@RequestParam(name = "index", defaultValue = INVALID_INDEX) int index) {
+
+        if (index == -1) {
+            System.out.println("A valid index has to be specified");
+            return null;
+        } else {
+            int[] roots = new int[tempRoots.size()];
+            for (int i=0; i<roots.length; i++) {
+                roots[i] = Integer.parseInt(tempRoots.get(i).getEditable().toString().substring(0,1));
+            }
+            return currentBuilder.merge(index, roots);
+        }
+
+    }
+
+    @PutMapping(value = "/ground")
+    private void ground() { currentBuilder.ground(); }
+
+    @PutMapping(value = "/leftJuxtapose")
+    private String leftJuxtapose(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
+                                 @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+
+        DirectedBigraph selectedBigraph = null;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                selectedBigraph = namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+
+        if (selectedBigraph == null) {
+            return "Searched bigraph not found in the list of available bigraphs";
+        }
+
+        currentBuilder.leftJuxtapose(selectedBigraph, reuse);
+        return "Left juxtapose done!";
+    }
+
+    @PutMapping(value = "/rightJuxtapose")
+    private String rightJuxtapose(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
+                                  @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+
+        DirectedBigraph selectedBigraph = null;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                selectedBigraph = namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+
+        if (selectedBigraph == null) {
+            return "Searched bigraph not found in the list of available bigraphs";
+        }
+
+        currentBuilder.rightJuxtapose(selectedBigraph, reuse);
+        return "Right juxtapose done!";
+    }
+
+    @PutMapping(value = "/innerCompose")
+    private String innerCompose(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
+                                @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+
+        DirectedBigraph selectedBigraph = null;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                selectedBigraph = namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+
+        if (selectedBigraph == null) {
+            return "Searched bigraph not found in the list of available bigraphs";
+        }
+
+        currentBuilder.innerCompose(selectedBigraph, reuse);
+        return "Inner composition done!";
+    }
+
+
 
     /**
      * @param parentName name of the parent to search
