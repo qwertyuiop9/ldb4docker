@@ -23,25 +23,24 @@ public class EditorInspector {
         StringBuilder stringBuilder = new StringBuilder();
         List<Node> nodes = new LinkedList<>(currentBuilder.getNodes());
 
-        if (nodeIndex != -1 ) {
+        if (nodeIndex != -1) {
             addNodeDescription(stringBuilder, nodeIndex, nodes);
         } else {
-            for (int i = 0; i< nodes.size(); i++) {
+            for (int i = 0; i < nodes.size(); i++) {
                 addNodeDescription(stringBuilder, i, nodes);
             }
         }
 
-        return stringBuilder.toString() ;
+        return stringBuilder.toString();
     }
 
     /**
-     *
      * @param stringBuilder in cui salvare le informazioni del nodo considerato
-     * @param i indice del nodo nella lista interna all'editor
+     * @param i             indice del nodo nella lista interna all'editor
      */
     private void addNodeDescription(StringBuilder stringBuilder, int i, List<Node> nodes) {
         Node currentNode = nodes.get(i);
-        stringBuilder.append("<<--- NODE (").append(i).append( ") '").append(currentNode.getName()).append("' - ");
+        stringBuilder.append("<<--- NODE (").append(i).append(") '").append(currentNode.getName()).append("' - ");
         stringBuilder.append("Parent: ' ").append(currentNode.getParent().getEditable().toString()).append("' ");
         stringBuilder.append("- Out ports [ ");
         for (OutPort outPort : currentNode.getOutPorts()) {
@@ -88,15 +87,31 @@ public class EditorInspector {
 
         StringBuilder stringBuilder = new StringBuilder();
 
-        if (index != -1 ) {
+        if (index != -1) {
             addOuterNameDescription(stringBuilder, index);
         } else {
-            for (int i=0; i<outerNames.size(); i++) {
+            for (int i = 0; i < outerNames.size(); i++) {
                 addOuterNameDescription(stringBuilder, i);
             }
         }
 
-        return stringBuilder.toString() ;
+        return stringBuilder.toString();
+    }
+
+    @GetMapping(value = "showInnerNames")
+    private String showInnerNames(@RequestParam(value = "index", defaultValue = "-1") int index) {
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        if (index != -1) {
+            addInnerNameDescription(stringBuilder, index);
+        } else {
+            for (int i = 0; i < innerNames.size(); i++) {
+                addInnerNameDescription(stringBuilder, i);
+            }
+        }
+
+        return stringBuilder.toString();
     }
 
     /**
@@ -106,7 +121,7 @@ public class EditorInspector {
      */
     @GetMapping(value = "/showSites")
     private String showSites(@RequestParam(value = "index", defaultValue = INVALID_INDEX) int index,
-                             @RequestParam(value =  "name", defaultValue = INVALID_NAME) String name) {
+                             @RequestParam(value = "name", defaultValue = INVALID_NAME) String name) {
 
         StringBuilder stringBuilder = new StringBuilder();
         if (name.equals(INVALID_NAME)) {
@@ -138,13 +153,12 @@ public class EditorInspector {
 
     /**
      * @param index of the edge to inspect, if invalid all the edges have to be inspected
-     * @param name name of the edge to inspect
+     * @param name  name of the edge to inspect
      * @return a description of the edge/s got
-     *
      */
     @GetMapping(value = "/showEdges")
     private String showEdges(@RequestParam(value = "index", defaultValue = INVALID_INDEX) int index,
-                             @RequestParam(value =  "name", defaultValue = INVALID_NAME) String name) {
+                             @RequestParam(value = "name", defaultValue = INVALID_NAME) String name) {
 
         List<Edge> edges;
         StringBuilder stringBuilder = new StringBuilder();
@@ -176,7 +190,23 @@ public class EditorInspector {
 
     private void addOuterNameDescription(StringBuilder stringBuilder, int i) {
         OuterName outerName = outerNames.get(i);
-        stringBuilder.append("OuterName ").append(i).append(") ").append(outerName.toString()).append(", ");
+        addNameDescription(stringBuilder, outerName.getName(), "OuterName");
+    }
+
+    private void addInnerNameDescription(StringBuilder stringBuilder, int i) {
+        InnerName innerName = innerNames.get(i);
+        addNameDescription(stringBuilder, innerName.getName(), "InnerName");
+    }
+
+    private void addNameDescription(StringBuilder stringBuilder, String name, String nameType) {
+
+        if (name.equals("InnerName")) {
+            stringBuilder.append("InnerName '").append(name).append("', ");
+        } else if (name.equals("OuterName")) {
+            stringBuilder.append("OuterName '").append(name).append("', ");
+        } else {
+            System.out.println("No valid name type specified...");
+        }
     }
 
     private static void addChildrenInformation(StringBuilder stringBuilder, EditableRoot editableRoot) {
@@ -197,6 +227,17 @@ public class EditorInspector {
         StringBuilder stringBuilder = new StringBuilder();
         for (NamedHandle namedHandle : tempHandles) {
             stringBuilder.append("[").append(namedHandle.getHandleName()).append("],");
+        }
+
+        return stringBuilder.toString();
+    }
+
+    @GetMapping("/showTemporaryPointList")
+    private static String showTemporaryPointList() {
+
+        StringBuilder stringBuilder = new StringBuilder();
+        for (NamedPoint namedPoint : tempPoints) {
+            stringBuilder.append("[").append(namedPoint.getName()).append("],");
         }
 
         return stringBuilder.toString();

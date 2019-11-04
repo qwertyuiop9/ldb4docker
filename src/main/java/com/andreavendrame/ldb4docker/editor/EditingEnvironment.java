@@ -32,8 +32,9 @@ public class EditingEnvironment {
     public static List<String> services = new LinkedList<>();
     public static List<Point> points = new LinkedList<>();
     // Temporary lists
-    public static List<NamedHandle> tempHandles = new LinkedList<>();
     public static List<Root> tempRoots = new LinkedList<>();
+    public static List<NamedHandle> tempHandles = new LinkedList<>();
+    public static List<NamedPoint> tempPoints = new LinkedList<>();
     public static List<NamedDirectedBigraph> myDirectedBigraphs = new LinkedList<>();
 
 

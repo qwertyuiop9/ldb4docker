@@ -19,6 +19,7 @@ public class Editor {
     public static final String INVALID_NAME = "invalidName";
     public static final String INVALID_HANDLE = "invalidHandle";
     public static final String INVALID_INDEX = "-1";
+    public static final String INVALID_POINT = "invalidPoint";
     public static final int INVALID_INDEX_NUMBER = -1;
 
     public static final String INNER_INTERFACE = "inner";
@@ -569,7 +570,7 @@ public class Editor {
         }
     }
 
-    @PostMapping("/clearTempRootList")
+    @PutMapping("/clearTempRootList")
     private String clearTempRootList() {
         tempRoots.clear();
         return "Root list empty.";
@@ -605,10 +606,31 @@ public class Editor {
         return resultHandle;
     }
 
-    @PostMapping("/clearTempHandleList")
+    @PutMapping("/clearTempHandleList")
     private String clearTempHandleList() {
         tempHandles.clear();
         return "Handles list empty.";
+    }
+
+    @PutMapping("/relink")
+    public Handle relink(@RequestParam(name = "outerName", defaultValue = INVALID_HANDLE) String outerNameName,
+                         @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
+                         @RequestParam(name = "node", defaultValue = INVALID_HANDLE) String nodeName,
+                         @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
+
+        Handle specifiedHandle = getHandle(outerNameName, edgeName, nodeName, portIndex);
+        Point[] points = (Point[]) tempPoints.toArray();
+        Handle resultHandle = null;
+        if (specifiedHandle == null) {
+            // Link the points to a new fresh edge
+            resultHandle = currentBuilder.relink(points);
+        } else {
+            // Link the point to se specified handle
+            resultHandle = (Handle) currentBuilder.relink(specifiedHandle, points);
+        }
+
+        System.out.println("Points relinked.");
+        return resultHandle;
     }
 
     @DeleteMapping("outerNames")
@@ -698,6 +720,43 @@ public class Editor {
         }
     }
 
+    @PostMapping("/addPointToTempList")
+    private void addPointToTempList(@RequestParam(name = "innerName", defaultValue = INVALID_POINT) String innerNameName,
+                                    @RequestParam(name = "node", defaultValue = INVALID_POINT) String nodeName,
+                                    @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
+
+        InnerName innerName = getInnerNameByName(innerNameName);
+        if (!innerNameName.equals(INVALID_POINT)) {
+            // Specified an InnerName instance as Point
+            if (innerName == null) {
+                System.out.println("Invalid innerName specified");
+            } else {
+                tempPoints.add(new NamedPoint(innerName, "InnerName: " + innerNameName));
+                System.out.format("InnerName '%s' added to the temporary point list\n", innerName.getName());
+            }
+        } else if (!nodeName.equals(INVALID_POINT)) {
+            // Specified a OutPort instance as Point
+            Node node = getNodeByName(nodeName);
+            System.out.format("Node '%s' selected", node.getName());
+            if (portIndex != -1) {
+                OutPort outPort = node.getOutPort(portIndex);
+                if (outPort == null) {
+                    System.out.println("Invalid port index or node name specified");
+                } else {
+                    System.out.format("OutPort number '%d' (of node '%s') added to the temporary point list\n", outPort.getNumber(), outPort.getNode().getName());
+                    tempPoints.add(new NamedPoint(outPort, "Node: " + nodeName + ", port: " + portIndex));
+                }
+            } else {
+                System.out.println("Please specify a port index");
+            }
+        } else {
+            System.out.println("No valid point specified...");
+        }
+    }
+
+    @PutMapping("/clearTempPointList")
+    private void clearTempPointList() { tempPoints.clear(); }
+
     @PutMapping(value = "/mergeBigraph")
     private Root merge() {
         return currentBuilder.merge();
@@ -779,6 +838,100 @@ public class Editor {
         return "Inner composition done!";
     }
 
+    @PutMapping(value = "/outerCompose")
+    private String outerCompose(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
+                                @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+
+        DirectedBigraph selectedBigraph = null;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                selectedBigraph = namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+
+        if (selectedBigraph == null) {
+            return "Searched bigraph not found in the list of available bigraphs";
+        }
+
+        currentBuilder.outerCompose(selectedBigraph, reuse);
+        return "Outer composition done!";
+    }
+
+    @PutMapping(value = "/leftParallelProduct")
+    private String leftParallelProduct(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
+                                       @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+
+        DirectedBigraph selectedBigraph = null;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                selectedBigraph = namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+
+        if (selectedBigraph == null) {
+            return "Searched bigraph not found in the list of available bigraphs";
+        }
+
+        currentBuilder.leftParallelProduct(selectedBigraph, reuse);
+        return "Left parallel product done!";
+    }
+
+    @PutMapping(value = "/rightParallelProduct")
+    private String rightParallelProduct(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
+                                       @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+
+        DirectedBigraph selectedBigraph = null;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                selectedBigraph = namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+
+        if (selectedBigraph == null) {
+            return "Searched bigraph not found in the list of available bigraphs";
+        }
+
+        currentBuilder.rightParallelProduct(selectedBigraph, reuse);
+        return "Right parallel product done!";
+    }
+
+    @PutMapping(value = "/leftMergeProduct")
+    private String leftMergeProduct(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
+                                    @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+
+        DirectedBigraph selectedBigraph = null;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                selectedBigraph = namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+
+        if (selectedBigraph == null) {
+            return "Searched bigraph not found in the list of available bigraphs";
+        }
+
+        currentBuilder.leftMergeProduct(selectedBigraph, reuse);
+        return "Left merge product done!";
+    }
+
+    @PutMapping(value = "/rightMergeProduct")
+    private String rightMergeProduct(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
+                                     @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+
+        DirectedBigraph selectedBigraph = null;
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                selectedBigraph = namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+
+        if (selectedBigraph == null) {
+            return "Searched bigraph not found in the list of available bigraphs";
+        }
+
+        currentBuilder.rightMergeProduct(selectedBigraph, reuse);
+        return "Right merge product done!";
+    }
 
 
     /**
