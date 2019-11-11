@@ -5,9 +5,17 @@ import com.andreavendrame.ldb4docker.myjlibbig.ldb.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+import org.yaml.snakeyaml.Yaml;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.ProtocolException;
+import java.net.URL;
+import java.util.*;
 
 import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.*;
 
@@ -25,8 +33,11 @@ public class Editor {
     public static final String INNER_INTERFACE = "inner";
     public static final String OUTER_INTERFACE = "outer";
 
+    public static final String YML_EXTENSION = ".yml";
+    public static final String JSON_EXTENSION = ".json";
+
     @Autowired
-    private RestTemplate restTemplate;
+    private static RestTemplate restTemplate;
 
     @PostMapping(value = "/directedControls")
     private String addDirectedControl(@RequestParam(name = "controlName") String controlName,
@@ -75,10 +86,10 @@ public class Editor {
      * @return the newly added root if it has been possible to add it without errors
      */
     @PostMapping(value = "/roots")
-    private Root addRoot(@RequestParam(value = "locality", defaultValue = "-1") int locality) {
+    private Root addRoot(@RequestParam(value = "locality", defaultValue = INVALID_INDEX) int locality) {
         System.out.println("Indice della radice: " + locality);
         Root root;
-        if (locality == -1) {
+        if (locality == INVALID_INDEX_NUMBER) {
             // Add a root at the last locality
             root = currentBuilder.addRoot();
         } else {
@@ -92,7 +103,7 @@ public class Editor {
      * @param index    position of the root to get in the root list
      * @param rootName name of the root to get
      * @return there can be 3 possibility specifing one or the other parameter
-     * 1) index not specified or index == -1: return the entire root list;
+     * 1) index not specified or index == INVALID_INDEX_NUMBER: return the entire root list;
      * 2) index specified: return a one item list with the specified root;
      * 3) name specificied: return a one item list with the specified root.
      * Method notes:
@@ -100,12 +111,12 @@ public class Editor {
      * or the name is not valid the method return an empty list
      */
     @GetMapping(value = "/roots")
-    private List<Root> getRoot(@RequestParam(name = "index", defaultValue = "-1") int index,
+    private List<Root> getRoot(@RequestParam(name = "index", defaultValue = INVALID_INDEX) int index,
                                @RequestParam(name = "name", defaultValue = INVALID_NAME) String rootName) {
 
         List<Root> rootList = new LinkedList<>();
         if (rootName.equals(INVALID_NAME)) {
-            if (index == -1) {
+            if (index == INVALID_INDEX_NUMBER) {
                 return new LinkedList<>(currentBuilder.getRoots());
             } else {
                 rootList = new LinkedList<>(currentBuilder.getRoots());
@@ -121,9 +132,9 @@ public class Editor {
     }
 
     @DeleteMapping(value = "/roots")
-    private void removeRoot(@RequestParam(name = "locality", defaultValue = "-1") int locality) {
+    private void removeRoot(@RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality) {
 
-        if (locality != -1) {
+        if (locality != INVALID_INDEX_NUMBER) {
             currentBuilder.removeRoot(locality);
         } else {
             System.out.println("Index of the root to delete not specified... Try again specifing the locality");
@@ -131,9 +142,9 @@ public class Editor {
     }
 
     @PostMapping(value = "/addDescNameInnerInterface")
-    private OuterName addDescNameInnerInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
+    private OuterName addDescNameInnerInterface(@RequestParam(name = "locality", defaultValue = INVALID_INDEX) int localityIndex,
                                                 @RequestParam(name = "name", defaultValue = "") String name) {
-        if (localityIndex == -1) {
+        if (localityIndex == INVALID_INDEX_NUMBER) {
             return null;
         } else {
             OuterName outerName;
@@ -157,7 +168,7 @@ public class Editor {
      * @return the new innerName
      */
     @PostMapping(value = "/addDescNameOuterInterface")
-    private InnerName addDescNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int locality,
+    private InnerName addDescNameOuterInterface(@RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
                                                 @RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
                                                 @RequestParam(name = "outerName", defaultValue = INVALID_NAME ) String outerNameName,
                                                 @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
@@ -165,7 +176,7 @@ public class Editor {
                                                 @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
         InnerName innerName;
 
-        if (locality == -1) {
+        if (locality == INVALID_INDEX_NUMBER) {
             // Invalid locality
             System.out.println("Method 'addDescNameOuterInterface' invalid 'locality parameter");
             return null;
@@ -189,9 +200,9 @@ public class Editor {
     }
 
     @PostMapping(value = "/addAscNameOuterInterface")
-    private OuterName addAscNameOuterInterface(@RequestParam(name = "locality", defaultValue = "-1") int localityIndex,
+    private OuterName addAscNameOuterInterface(@RequestParam(name = "locality", defaultValue = INVALID_INDEX) int localityIndex,
                                                @RequestParam(name = "name", defaultValue = "") String name) {
-        if (localityIndex == -1) {
+        if (localityIndex == INVALID_INDEX_NUMBER) {
             return null;
         } else {
             OuterName outerName;
@@ -207,7 +218,7 @@ public class Editor {
     }
 
     @PostMapping(value = "/addAscNameInnerInterface")
-    private InnerName addAscNameInnerInterface(@RequestParam(name = "locality", defaultValue = "-1") int locality,
+    private InnerName addAscNameInnerInterface(@RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
                                                @RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
                                                @RequestParam(name = "outerName", defaultValue = INVALID_NAME ) String outerNameName,
                                                @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
@@ -216,7 +227,7 @@ public class Editor {
 
         InnerName innerName;
 
-        if (locality == -1) {
+        if (locality == INVALID_INDEX_NUMBER) {
             return null;
         } else {
             Handle handle = getHandle(outerNameName, edgeName, nodeName, portIndex);
@@ -241,11 +252,11 @@ public class Editor {
     }
 
     @GetMapping(value = "/outerNames")
-    private List<OuterName> getOuterNames(@RequestParam(name = "index", defaultValue = "-1") int index,
+    private List<OuterName> getOuterNames(@RequestParam(name = "index", defaultValue = INVALID_INDEX) int index,
                                           @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
 
         if (name.equals(INVALID_NAME)) {
-            if (index == -1) {
+            if (index == INVALID_INDEX_NUMBER) {
                 return outerNames;
             } else {
                 List<OuterName> oneItemList = new LinkedList<>();
@@ -260,9 +271,9 @@ public class Editor {
     }
 
     @GetMapping(value = "innerNames")
-    private List<InnerName> getInnerNames(@RequestParam(name = "index", defaultValue = "-1") int index) {
+    private List<InnerName> getInnerNames(@RequestParam(name = "index", defaultValue = INVALID_INDEX) int index) {
 
-        if (index == -1) {
+        if (index == INVALID_INDEX_NUMBER) {
             return innerNames;
         } else {
             List<InnerName> oneItemList = new LinkedList<>();
@@ -283,7 +294,7 @@ public class Editor {
         }
 
         if (name.equals(INVALID_NAME)) {
-            if (index == -1) {
+            if (index == INVALID_INDEX_NUMBER) {
                 return edges;
             } else {
                 List<Edge> oneItemList = new LinkedList<>();
@@ -304,12 +315,12 @@ public class Editor {
     }
 
     @GetMapping(value = "/nodes")
-    private List<Node> getNodes(@RequestParam(value = "index", defaultValue = "-1") int index,
+    private List<Node> getNodes(@RequestParam(value = "index", defaultValue = INVALID_INDEX) int index,
                                 @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
 
         List<Node> oneItemList = new LinkedList<>();
         if (name.equals(INVALID_NAME)) {
-            if (index == -1) {
+            if (index == INVALID_INDEX_NUMBER) {
                 return new LinkedList<>(currentBuilder.getNodes());
             } else {
                 oneItemList.add(new LinkedList<>(currentBuilder.getNodes()).get(index));
@@ -365,7 +376,7 @@ public class Editor {
                                 @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
 
         if (name.equals(INVALID_NAME)) {
-            if (index == -1) {
+            if (index == INVALID_INDEX_NUMBER) {
                 return sites;
             } else {
                 List<Site> oneItemList = new LinkedList<>();
@@ -391,7 +402,7 @@ public class Editor {
     private void removeSite(@RequestParam(name = "index", defaultValue = INVALID_INDEX) int index,
                             @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
 
-        if (index != -1) {
+        if (index != INVALID_INDEX_NUMBER) {
             currentBuilder.closeSite(index);
         } else if (!name.equals(INVALID_NAME)) {
             boolean deleted = false;
@@ -420,17 +431,6 @@ public class Editor {
     @GetMapping(value = "/outerInterfaces")
     private Interface getOuterInterface() {
         return currentBuilder.getOuterInterface();
-    }
-
-    @GetMapping(value = "services")
-    private List<String> gerServices(@RequestParam(value = "index", defaultValue = "-1") int index) {
-        if (index == -1) {
-            return services;
-        } else {
-            List<String> oneItemList = new LinkedList<>();
-            oneItemList.add(services.get(index));
-            return oneItemList;
-        }
     }
 
     @PostMapping(value = "makeBigraph")
@@ -468,7 +468,6 @@ public class Editor {
         innerNames.clear();
         sites.clear();
         bigraphControls.clear();
-        services.clear();
         points.clear();
 
         currentSignature = null;
@@ -542,7 +541,7 @@ public class Editor {
             // Specified a InPort instance as Handle
             Node node = getNodeByName(nodeName);
             System.out.format("Node '%s' selected", node.getName());
-            if (portIndex != -1) {
+            if (portIndex != INVALID_INDEX_NUMBER) {
                 InPort inPort = (InPort) getHandle(outerNameName, edgeName, nodeName, portIndex);
                 if (inPort == null) {
                     System.out.println("Invalid port index or node name specified");
@@ -594,7 +593,7 @@ public class Editor {
             // Specified a InPort instance as Handle
             Node associatedNode = getNodeByName(nodeName);
             System.out.format("Node '%s' selected", associatedNode.getName());
-            if (portIndex != -1) {
+            if (portIndex != INVALID_INDEX_NUMBER) {
                 resultHandle =  associatedNode.getInPort(portIndex);
             } else {
                 System.out.println("Please specify a port index");
@@ -738,7 +737,7 @@ public class Editor {
             // Specified a OutPort instance as Point
             Node node = getNodeByName(nodeName);
             System.out.format("Node '%s' selected", node.getName());
-            if (portIndex != -1) {
+            if (portIndex != INVALID_INDEX_NUMBER) {
                 OutPort outPort = node.getOutPort(portIndex);
                 if (outPort == null) {
                     System.out.println("Invalid port index or node name specified");
@@ -765,7 +764,7 @@ public class Editor {
     @PutMapping(value = "/mergeRegions")
     private Root mergeBigraphRegions(@RequestParam(name = "index", defaultValue = INVALID_INDEX) int index) {
 
-        if (index == -1) {
+        if (index == INVALID_INDEX_NUMBER) {
             System.out.println("A valid index has to be specified");
             return null;
         } else {
@@ -1028,6 +1027,271 @@ public class Editor {
             }
         }
         return selectedEdge;
+    }
+
+    @PostMapping(value = "/import")
+    private static DirectedBigraph docker2ldb(@RequestParam(name = "filePath", defaultValue = INVALID_NAME) String filePath,
+                                              @RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName) throws Exception {
+
+        DirectedBigraph importedBigraph = null;
+
+        if (filePath.equals(INVALID_NAME)) {
+            System.out.println("The specified path is invalid.");
+            return null;
+        } else if (bigraphName.equals(INVALID_NAME)) {
+            System.out.println("The name of the bigraph to import is invalid.");
+            return null;
+        }
+
+        if (filePath.contains(YML_EXTENSION)) {
+            importedBigraph = importFromYML(filePath);
+        } else if (filePath.contains(JSON_EXTENSION)) {
+            //importedBigraph = importFromJson(filePath);
+        }
+
+        // Adding the bigraph generated to the environment
+        myDirectedBigraphs.add(new NamedDirectedBigraph(importedBigraph, bigraphName));
+
+        return importedBigraph;
+    }
+
+    @GetMapping(value = "/importazioneForzata")
+    private DirectedBigraph importFromJson() {
+
+        String httpRequest = "http://localhost:8081/editor/bigraphs?bigraphName=testSystem";
+        RestTemplate template = new RestTemplate();
+        return Objects.requireNonNull(template).getForObject(httpRequest, DirectedBigraph.class);
+    }
+
+    private static DirectedBigraph importFromYML(String filePath) throws Exception {
+
+        InputStream input = new FileInputStream(new File(filePath));
+        Yaml yaml = new Yaml();
+        // declarations in the docker-compose.yml file
+        Map<String, Map> o = (Map<String, Map>) yaml.load(input);
+        System.out.println("DEBUG - Dimensione YML " + o.size());
+
+        System.out.println("\n\n");
+
+        Iterator<String> iterator = o.keySet().iterator();
+        int index = 0;
+        while (iterator.hasNext()) {
+            System.out.println("Chiave " + index + ": " + iterator.next());
+            index++;
+        }
+
+        System.out.println();
+        Map<String, Map> services = o.get("services");
+        Map<String, Map> networks = o.get("networks");
+        Map<String, Map> volumes = o.get("volumes");
+
+        System.out.println("YAML config file correctly loaded.");
+
+        boolean useDefaultNetwork = (networks == null); // used to know if networks are used
+
+        // preparing controls, signature and empty bigraph
+        List<DirectedControl> controls = new ArrayList<>();
+
+        // Il container ha una sola porta entrante con il nome del container stesso
+        controls.add(new DirectedControl("container", true, 0, 1));
+        // Le reti (networks) hanno due porte uscenti (arityOut = 2): una per leggere e una per scrivere
+        controls.add(new DirectedControl("network", true, 2, 0));
+        // I volumi (volumes) hanno due porte uscenti (arityOut = 2): una per leggere e una per scrivere
+        controls.add(new DirectedControl("volume", true, 2, 0));
+
+        DirectedSignature signature = new DirectedSignature(controls);
+        DirectedBigraphBuilder directedBigraphBuilder = new DirectedBigraphBuilder(signature);
+        
+        Root rootZero = directedBigraphBuilder.addRoot(); // root 1
+        System.out.println("Added a root to the bigraph.");
+
+        // Networks -->
+        Map<String, OuterName> networkNames = new HashMap<>();
+
+        if (useDefaultNetwork) {
+            networkNames.put("default", directedBigraphBuilder.addAscNameOuterInterface(1, "default"));
+            System.out.println("Added \"default\" network.");
+        } else {
+            for (String network : networks.keySet()) {
+                networkNames.put(network, directedBigraphBuilder.addAscNameOuterInterface(1, network));
+                System.out.println("Added \"" + network + "\" network.");
+            }
+        }
+
+        System.out.println();
+
+        // Volumes -->
+        Map<String, OuterName> volumeNames = new HashMap<>();
+        if (volumes != null) {
+            for (String volume : volumes.keySet()) {
+                OuterName newOuterName = directedBigraphBuilder.addAscNameOuterInterface(1, volume);
+                volumeNames.put(volume, newOuterName);
+                System.out.format("Aggiunto un volume chiamato '%s' con outerName '%s'\n", volume, newOuterName);
+            }
+        }
+
+        // save service outer names
+        int locality = 1;
+        Map<String, OuterName> outerNames = new HashMap<>();
+
+        List<DirectedBigraph> graphs = new ArrayList<>(services.size());
+
+        for (String service : services.keySet()) {
+            directedBigraphBuilder.addSite(rootZero); // add a site
+            System.out.println("Added a site to the bigraph.");
+
+            if (useDefaultNetwork) {
+                directedBigraphBuilder.addAscNameInnerInterface(locality, "default", networkNames.get("default")); // add default net
+            }
+
+            outerNames.put(service, directedBigraphBuilder.addDescNameInnerInterface(locality, service));
+            directedBigraphBuilder.addDescNameOuterInterface(1, service, outerNames.get(service)); // expose the name
+
+            locality++;
+        }
+
+        locality = 1; // reset counter
+        for (String service : services.keySet()) { // parse every service in docker-compose file
+            System.out.println("Service: " + service);
+            List<String> currentNetworks = (List<String>) services.get(service).get("networks");
+            List<String> currentVolumes = (List<String>) services.get(service).get("volumes");
+            List<String> ports = (List<String>) services.get(service).get("expose");
+            List<String> mappings = (List<String>) services.get(service).get("ports");
+            List<String> links = (List<String>) services.get(service).get("links");
+
+            DirectedBigraphBuilder currentBuilder = new DirectedBigraphBuilder(signature);
+            System.out.println("Creating a bigraph for the service.");
+            Root currentRoot = currentBuilder.addRoot(); // add a root
+            Node node = currentBuilder.addNode("container", currentRoot);
+
+            currentBuilder.addSite(node); // add a site for future purposes
+            currentBuilder.addDescNameOuterInterface(1, service, node.getInPort(0).getEditable());
+            // networks
+            if (useDefaultNetwork) {
+                System.out.println("Service connects to network \"default\", adding it to the interface.");
+
+                Node networkNode = currentBuilder.addNode("network", node);
+                OuterName networkName = currentBuilder.addAscNameOuterInterface(1, "default");
+
+                networkNode.getOutPort(0).getEditable().setHandle(networkName.getEditable()); // link the net to the node in read mode
+                networkNode.getOutPort(1).getEditable().setHandle(networkName.getEditable()); // link the net to the node in write mode
+
+            } else if (currentNetworks == null) {
+                throw new Exception("You must declare networks service connects to, because you declared global networks!");
+            } else {
+                // local_nets cannot be null because previous exception was skipped
+                for (String network : currentNetworks) {
+                    if (!networks.containsKey(network)) {
+                        throw new Exception("Network \"" + network + "\" not declared.");
+                    }
+                    System.out.println("Service " + service + " connects to network \"" + network + "\", adding it to the interface.");
+
+                    Node networkNode = currentBuilder.addNode("network", node);
+                    OuterName networkName = currentBuilder.addAscNameOuterInterface(1, network);
+
+                    networkNode.getOutPort(0).getEditable().setHandle(networkName.getEditable()); // link the net to the node in read mode
+                    networkNode.getOutPort(1).getEditable().setHandle(networkName.getEditable()); // link the net to the node in write mode
+                    directedBigraphBuilder.addAscNameInnerInterface(locality, network, networkNames.get(network));
+                }
+            }
+            //volumes
+            if (currentVolumes != null) {
+                for (String volume : currentVolumes) {
+                    String[] vs = volume.split(":");
+                    if (vs.length > 1) { // check if the volume must be generated
+                        if (!vs[0].startsWith("/") && !vs[0].startsWith("./") && !vs[0].startsWith("~/") && (volumes == null || !volumes.containsKey(vs[0]))) {
+                            throw new Exception("Volume \"" + vs[0] + "\" not declared.");
+                        }
+                        System.out.println("Service mounts volume \"" + vs[0] + "\" at path \"" + vs[1] + "\", adding it to the interface.");
+                        if (!volumeNames.containsKey(vs[0])) {
+                            volumeNames.put(vs[0], directedBigraphBuilder.addAscNameOuterInterface(1, vs[0]));
+                        }
+                        directedBigraphBuilder.addAscNameInnerInterface(locality, vs[1], volumeNames.get(vs[0]));
+
+                        Node vol_node = currentBuilder.addNode("volume", node);
+                        OuterName vol_name = currentBuilder.addAscNameOuterInterface(1, vs[1]);
+
+                        vol_node.getOutPort(0).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in read mode
+                        if (!(vs.length == 3 && vs[2].equals("ro"))) {
+                            vol_node.getOutPort(1).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in write mode
+                        }
+                    } else {
+                        System.out.println("Service mounts volume at path \"" + vs[0] + "\", adding it to the interface.");
+                        directedBigraphBuilder.addAscNameInnerInterface(locality, vs[0], directedBigraphBuilder.addAscNameOuterInterface(1, locality + "_" + volume));
+
+                        Node vol_node = currentBuilder.addNode("volume", node);
+                        OuterName vol_name = currentBuilder.addAscNameOuterInterface(1, vs[0]);
+
+                        vol_node.getOutPort(0).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in read mode
+                        if (!(vs.length == 3 && vs[2].equals("ro"))) {
+                            vol_node.getOutPort(1).getEditable().setHandle(vol_name.getEditable()); // link the volume to the node in write mode
+                        }
+                    }
+                }
+            }
+            // expose
+            if (ports != null) {
+                for (String port : ports) {
+                    System.out.println("Service exposes port " + port + ", adding it to the interface.");
+                    currentBuilder.addDescNameOuterInterface(1, service + "_" + port, currentBuilder.addDescNameInnerInterface(1, service + "_" + port));
+                    directedBigraphBuilder.addDescNameInnerInterface(locality, service + "_" + port);
+                }
+            }
+            // ports
+            if (mappings != null) {
+                for (String map : mappings) {
+                    String[] ps = map.split(":");
+                    System.out.println("Service maps port " + ps[1] + " to port " + ps[0] + ", adding them to interfaces.");
+                    currentBuilder.addDescNameOuterInterface(1, service + "_" + ps[1], currentBuilder.addDescNameInnerInterface(1, service + "_" + ps[1]));
+                    directedBigraphBuilder.addDescNameOuterInterface(1, ps[0], directedBigraphBuilder.addDescNameInnerInterface(locality, service + "_" + ps[1]));
+                }
+            }
+            // links
+            if (links != null) {
+                for (String link : links) {
+                    String[] ls = link.split(":");
+                    if (ls.length > 1) {
+                        if (!outerNames.containsKey(ls[0])) {
+                            throw new Exception("Service \"" + ls[0] + "\" undefined.");
+                        }
+                        System.out.println("Service links to container \"" + ls[0] + "\", renaming it to \"" + ls[1] + "\" recreating this on interfaces.");
+                        currentBuilder.addAscNameInnerInterface(1, "l_" + ls[1] + "_" + service, currentBuilder.addAscNameOuterInterface(1, "l_" + ls[1] + "_" + service));
+                        directedBigraphBuilder.addAscNameInnerInterface(locality, "l_" + ls[1] + "_" + service, outerNames.get(ls[0]));
+                    } else {
+                        if (!outerNames.containsKey(ls[0])) {
+                            throw new Exception("Service \"" + ls[0] + "\" undefined.");
+                        }
+                        System.out.println("Service links to container \"" + ls[0] + "\", recreating this on interfaces.");
+                        currentBuilder.addAscNameInnerInterface(1, "l_" + ls[0] + "_" + service, currentBuilder.addAscNameOuterInterface(1, "l_" + ls[0] + "_" + service));
+                        directedBigraphBuilder.addAscNameInnerInterface(locality, "l_" + ls[0] + "_" + service, outerNames.get(ls[0]));
+                    }
+                }
+            }
+            System.out.println("Resulting bigraph: \n" + currentBuilder);
+            System.out.println("----------------------------------------------");
+
+
+            graphs.add(currentBuilder.makeBigraph());
+            locality++; // ready for the next
+        }
+        System.out.println("Compose bigraph: \n" + directedBigraphBuilder);
+        System.out.println("----------------------------------------------");
+
+        List<DirectedBigraph> outs = new ArrayList<>();
+        outs.add(directedBigraphBuilder.makeBigraph());
+
+        return DirectedBigraph.compose(outs, graphs);
+    }
+
+    @GetMapping(value = "/bigraphs")
+    private DirectedBigraph getBigraph(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName) {
+
+        for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+            if (namedDirectedBigraph.getName().equals(bigraphName))  {
+                return namedDirectedBigraph.getDirectedBigraph();
+            }
+        }
+        return null;
     }
 
 }

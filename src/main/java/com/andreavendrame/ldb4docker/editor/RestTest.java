@@ -4,10 +4,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.URL;
+import java.net.*;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
@@ -46,7 +43,7 @@ public class RestTest {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) Objects.requireNonNull(url).openConnection();
-            connection.setDoOutput(SHOW_REQUEST_OUTPUT);
+            connection.setDoOutput(true);
         } catch (IOException e) {
             System.out.format("Richiesta %s fallita. Causa ERRORE APERTURA CONNESSIONE...\n", httpRequest);
             e.printStackTrace();
@@ -74,6 +71,7 @@ public class RestTest {
             e.printStackTrace();
         }
 
+
         System.out.format("Richiesta: %s terminata con codice %d\n", httpRequest.requestBody, responseCode);
     }
 
@@ -96,6 +94,7 @@ public class RestTest {
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/sites?parentName=N_FA0", POST_REQUEST));
         // Make bigraph
         this.testRequests.add(new MyRequest("http://localhost:8081/editor/makeBigraph?close=true&name=testSystem", POST_REQUEST));
+        this.testRequests.add(new MyRequest("http://localhost:8081/editor/bigraphs?bigraphName=testSystem", GET_REQUEST));
         //this.testRequests.add(new MyRequest("", ""));
     }
 

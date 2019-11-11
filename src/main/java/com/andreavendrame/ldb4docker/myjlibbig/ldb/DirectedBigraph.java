@@ -835,6 +835,11 @@ final public class DirectedBigraph implements
         return this.inners;
     }
 
+    public DirectedBigraph() {
+        System.out.println("Richiamato il costruttore di default del bigrafo");
+        signature = new DirectedSignature(new LinkedList<>());
+    }
+
     /**
      * Adds the new node to the cached collection of all nodes.
      * No coherence controls are enforced and the update is not
