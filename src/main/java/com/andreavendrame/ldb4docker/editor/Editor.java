@@ -2,6 +2,7 @@ package com.andreavendrame.ldb4docker.editor;
 
 import com.andreavendrame.ldb4docker.myjlibbig.Interface;
 import com.andreavendrame.ldb4docker.myjlibbig.ldb.*;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -9,13 +10,11 @@ import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
+import java.io.FileWriter;
 import java.io.InputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.URL;
+import java.net.StandardSocketOptions;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.*;
 
@@ -159,18 +158,18 @@ public class Editor {
     }
 
     /**
-     * @param locality to use
-     * @param name of the innerName to create
+     * @param locality      to use
+     * @param name          of the innerName to create
      * @param outerNameName if specified this parameter, an instance of "Edge", will be used as the "Handle" parameter
-     * @param edgeName if specified this parameter, an instance of "OuterName", will be used as the "Handle" parameter
-     * @param nodeName if specified this parameter, an instance of "InPort", will be used as the "Handle" parameter
-     * @param portIndex index of the port to use as Handle
+     * @param edgeName      if specified this parameter, an instance of "OuterName", will be used as the "Handle" parameter
+     * @param nodeName      if specified this parameter, an instance of "InPort", will be used as the "Handle" parameter
+     * @param portIndex     index of the port to use as Handle
      * @return the new innerName
      */
     @PostMapping(value = "/addDescNameOuterInterface")
     private InnerName addDescNameOuterInterface(@RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
                                                 @RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
-                                                @RequestParam(name = "outerName", defaultValue = INVALID_NAME ) String outerNameName,
+                                                @RequestParam(name = "outerName", defaultValue = INVALID_NAME) String outerNameName,
                                                 @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
                                                 @RequestParam(name = "node", defaultValue = INVALID_HANDLE) String nodeName,
                                                 @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
@@ -220,7 +219,7 @@ public class Editor {
     @PostMapping(value = "/addAscNameInnerInterface")
     private InnerName addAscNameInnerInterface(@RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
                                                @RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
-                                               @RequestParam(name = "outerName", defaultValue = INVALID_NAME ) String outerNameName,
+                                               @RequestParam(name = "outerName", defaultValue = INVALID_NAME) String outerNameName,
                                                @RequestParam(name = "edge", defaultValue = INVALID_HANDLE) String edgeName,
                                                @RequestParam(name = "node", defaultValue = INVALID_HANDLE) String nodeName,
                                                @RequestParam(name = "portIndex", defaultValue = INVALID_INDEX) int portIndex) {
@@ -284,7 +283,7 @@ public class Editor {
 
     @GetMapping(value = "/edges")
     public static List<Edge> getEdges(@RequestParam(name = "name", defaultValue = INVALID_NAME) String name,
-                                @RequestParam(name = "index", defaultValue = INVALID_INDEX) int index) {
+                                      @RequestParam(name = "index", defaultValue = INVALID_INDEX) int index) {
 
         System.out.println("Method 'getEdges' ---->");
 
@@ -333,8 +332,8 @@ public class Editor {
     }
 
     /**
-     * @param controlName name of the control to insert
-     * @param parentName  name of the parent the node will be attached to
+     * @param controlName       name of the control to insert
+     * @param parentName        name of the parent the node will be attached to
      * @param useTempHandleList set to true if you want to use the tempHandle list
      * @return the insertion resulting node
      */
@@ -367,7 +366,7 @@ public class Editor {
     }
 
     @GetMapping(value = "/parents")
-    private Parent getParent(@RequestParam( name = "parentName", defaultValue = INVALID_NAME) String parentName) {
+    private Parent getParent(@RequestParam(name = "parentName", defaultValue = INVALID_NAME) String parentName) {
         return getParentByName(parentName);
     }
 
@@ -435,7 +434,7 @@ public class Editor {
 
     @PostMapping(value = "makeBigraph")
     private DirectedBigraph makeBigraph(@RequestParam(name = "closeBigraph", defaultValue = "false") boolean closeBigraph,
-                                                  @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
+                                        @RequestParam(name = "name", defaultValue = INVALID_NAME) String name) {
         if (name.equals(INVALID_NAME)) {
             System.out.println("A name for the bigraph must be specified");
             return null;
@@ -448,10 +447,11 @@ public class Editor {
                 return null;
             }
         }
-        DirectedBigraph resultingBigraph =  currentBuilder.makeBigraph(closeBigraph);
+        DirectedBigraph resultingBigraph = currentBuilder.makeBigraph(closeBigraph);
         myDirectedBigraphs.add(new NamedDirectedBigraph(resultingBigraph, name));
         return resultingBigraph;
     }
+
     @PostMapping("/clearDirectedBigraphList")
     private String clearDirectedBigraphList() {
         myDirectedBigraphs.clear();
@@ -476,13 +476,19 @@ public class Editor {
     }
 
     @GetMapping("/isClosed")
-    private boolean isClosed() { return currentBuilder.isClosed(); }
+    private boolean isClosed() {
+        return currentBuilder.isClosed();
+    }
 
     @GetMapping("/isEmpty")
-    private boolean isEmpty() { return currentBuilder.isEmpty(); }
+    private boolean isEmpty() {
+        return currentBuilder.isEmpty();
+    }
 
     @GetMapping("/isGround")
-    private boolean isGround() { return currentBuilder.isGround(); }
+    private boolean isGround() {
+        return currentBuilder.isGround();
+    }
 
     @GetMapping("/containsOuterName")
     public boolean containsOuterName(@RequestParam(value = "name", defaultValue = INVALID_NAME) String name) {
@@ -594,7 +600,7 @@ public class Editor {
             Node associatedNode = getNodeByName(nodeName);
             System.out.format("Node '%s' selected", associatedNode.getName());
             if (portIndex != INVALID_INDEX_NUMBER) {
-                resultHandle =  associatedNode.getInPort(portIndex);
+                resultHandle = associatedNode.getInPort(portIndex);
             } else {
                 System.out.println("Please specify a port index");
             }
@@ -754,7 +760,9 @@ public class Editor {
     }
 
     @PutMapping("/clearTempPointList")
-    private void clearTempPointList() { tempPoints.clear(); }
+    private void clearTempPointList() {
+        tempPoints.clear();
+    }
 
     @PutMapping(value = "/mergeBigraph")
     private Root merge() {
@@ -769,8 +777,8 @@ public class Editor {
             return null;
         } else {
             int[] roots = new int[tempRoots.size()];
-            for (int i=0; i<roots.length; i++) {
-                roots[i] = Integer.parseInt(tempRoots.get(i).getEditable().toString().substring(0,1));
+            for (int i = 0; i < roots.length; i++) {
+                roots[i] = Integer.parseInt(tempRoots.get(i).getEditable().toString().substring(0, 1));
             }
             return currentBuilder.merge(index, roots);
         }
@@ -778,7 +786,9 @@ public class Editor {
     }
 
     @PutMapping(value = "/ground")
-    private void ground() { currentBuilder.ground(); }
+    private void ground() {
+        currentBuilder.ground();
+    }
 
     @PutMapping(value = "/leftJuxtapose")
     private String leftJuxtapose(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
@@ -877,7 +887,7 @@ public class Editor {
 
     @PutMapping(value = "/rightParallelProduct")
     private String rightParallelProduct(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName,
-                                       @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
+                                        @RequestParam(name = "reuse", defaultValue = "false") boolean reuse) {
 
         DirectedBigraph selectedBigraph = null;
         for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
@@ -1101,7 +1111,7 @@ public class Editor {
 
         DirectedSignature signature = new DirectedSignature(controls);
         DirectedBigraphBuilder directedBigraphBuilder = new DirectedBigraphBuilder(signature);
-        
+
         Root rootZero = directedBigraphBuilder.addRoot(); // root 1
         System.out.println("Added a root to the bigraph.");
 
@@ -1277,6 +1287,17 @@ public class Editor {
         System.out.println("Compose bigraph: \n" + directedBigraphBuilder);
         System.out.println("----------------------------------------------");
 
+        System.out.println("FROM HERE THE 'TO STRING' OF THE BIGRAPHS TO ADD ---------->");
+        int indice = 1;
+        for (DirectedBigraph bigraphToCompose : graphs) {
+            System.out.println(bigraphToCompose.toString());
+            System.out.println("Outer interface: " + bigraphToCompose.getOuterInterface().toString());
+            System.out.println("Inner interface: " + bigraphToCompose.getInnerInterface().toString());
+            System.out.println("END " + indice + " bigraph ------------------------------------------------->");
+            indice++;
+        }
+        System.out.println("END ------------------------------------------------------->");
+
         List<DirectedBigraph> outs = new ArrayList<>();
         outs.add(directedBigraphBuilder.makeBigraph());
 
@@ -1287,11 +1308,177 @@ public class Editor {
     private DirectedBigraph getBigraph(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName) {
 
         for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
-            if (namedDirectedBigraph.getName().equals(bigraphName))  {
+            if (namedDirectedBigraph.getName().equals(bigraphName)) {
                 return namedDirectedBigraph.getDirectedBigraph();
             }
         }
         return null;
+    }
+
+    @GetMapping(value = "test")
+    private String developTesting() {
+
+        DirectedBigraph importedBigraph = null;
+        try {
+            importedBigraph = importFromYML("C:\\Users\\andrea\\Desktop\\configurazione_bigrafo_burco.yml");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        System.out.println("FROM HERE THE 'TO STRING' OF THE COMPOSED BIGRAPHS ---------->");
+        System.out.println(importedBigraph.toString());
+        System.out.println("Outer interface: " + importedBigraph.getOuterInterface().toString());
+        System.out.println("Inner interface: " + importedBigraph.getInnerInterface().toString());
+        System.out.println("END ------------------------------------------------------->");
+
+        try {
+            myExport(importedBigraph);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        String output = "";
+        return output;
+    }
+
+    private void myExport(DirectedBigraph exploredBigraph) throws Exception {
+
+        String bigraph = exploredBigraph.toString();
+
+        Map<String, Object> data = new HashMap<String, Object>();
+        data.put("name", "Silenthand Olleander");
+        data.put("race", "Human");
+        data.put("traits", new String[]{"ONE_HAND", "ONE_EYE"});
+
+        List<String> serviceNames = getSusbtringList(bigraph.toString(), ":container <- {",":i}",true);
+        List<String> innerLocalities = getSusbtringList(exploredBigraph.getInnerInterface().toString(), "(", ")", false);
+                List<String> innerInterfaceServices = getSusbtringList(bigraph.toString(), "I", "}", false);
+
+        String[] locatedServices = getServicesByLocality(innerInterfaceServices);
+        List<String> partialInterfaces = getSusbtringList(exploredBigraph.getInnerInterface().toString(), "(", ")", false);
+        int[] serviceInnerPorts = new int[locatedServices.length];
+        int[] serviceOuterPorts = new int[locatedServices.length];
+
+        for (int i=0; i<locatedServices.length; i++) {
+            int inPort = getServiceInnerPort(partialInterfaces.get(i+1), locatedServices[i]);
+            serviceInnerPorts[i] = inPort;
+            int outPort = gerServiceOuterPort(exploredBigraph.toString(), locatedServices[i], inPort);
+            serviceOuterPorts[i] = outPort;
+        }
+
+        getInterfaceList(exploredBigraph.getInnerInterface().toString());
+
+
+
+
+
+        //Yaml yaml = new Yaml();
+        //FileWriter writer = new FileWriter("/path/to/file.yaml");
+        //yaml.dump(data, writer);
+
+
+    }
+
+    private static List<String> getSusbtringList(String text, String start, String end, boolean onlyServiceName) {
+
+        String textToAnalize = text;
+        List<String> output = new LinkedList<>();
+
+        int index = textToAnalize.indexOf(start);
+        int indexOfEnd = text.length();
+
+        while (index != -1 && indexOfEnd != -1) {
+            textToAnalize = textToAnalize.substring(index+1);
+            indexOfEnd = textToAnalize.indexOf(end);
+            if (indexOfEnd != -1) {
+                output.add(textToAnalize.substring(start.length()-1, indexOfEnd));
+                index = textToAnalize.indexOf(start);
+            }
+        }
+
+        List<String> cleanedServices = new LinkedList<>();
+        if (onlyServiceName) {
+            for (String service : output) {
+                if (service.contains(":i")) {
+                    cleanedServices.add(service.substring(0, service.indexOf(":i")));
+                } else {
+                    cleanedServices.add(service);
+                }
+            }
+            cleanedServices.stream().map(key -> "Parsed: " + key).forEach(System.out::println);
+            return cleanedServices;
+        } else {
+            output.stream().map(key -> "Parsed: " + key).forEach(System.out::println);
+            return output;
+        }
+    }
+
+    private static String[] getServicesByLocality(List<String> innerInterface) {
+
+        String[] locatedServices = new String[innerInterface.size()];
+
+        for (String service : innerInterface) {
+            int locality = Integer.parseInt(service.substring(0, service.indexOf("-")));
+            locatedServices[locality-1] = service.substring(service.indexOf("-.")+2, service.indexOf("_"));
+        }
+        return locatedServices;
+    }
+
+    private static int getServiceInnerPort(String interfaceString, String service) {
+
+        String toSearch = "{[" + service + "_";
+        int startIndex = interfaceString.indexOf(toSearch) + toSearch.length();
+        String portString = interfaceString.substring(startIndex);
+        int endIndex = portString.indexOf("]}");
+        portString = portString.substring(0, endIndex);
+
+        return Integer.parseInt(portString);
+    }
+
+    private static int gerServiceOuterPort(String text, String service, int inPort) {
+
+        String toSearch = "-." + service + "_" + inPort + " <- {O-.";
+        int start = text.indexOf(toSearch) + toSearch.length();
+        String cut = text.substring(start);
+        int end = cut.indexOf("}");
+        int outPort = -1;
+        if (end <= 4) {
+            outPort = Integer.parseInt(cut.substring(0, end));
+            System.out.format("The service '%s' has a mapping port from %d to %d.\n", service, inPort, outPort);
+        }
+        return outPort;
+    }
+
+    private static List<String> getInterfaceList(String innerInterface) {
+
+        List<String> links = new LinkedList<>();
+        String text = innerInterface;
+        String toSearch = "({[l_";
+        int start = innerInterface.indexOf(toSearch);
+        while (start != -1) {
+            text = text.substring(start + 3);
+            System.out.println("TEXT: " + text);
+            int end = text.indexOf("]}+");
+            System.out.println("End index " + end);
+            String link = text.substring(0, end);
+            System.out.println("Link: " + link);
+            start = text.indexOf(toSearch);
+        }
+
+        return links;
+    }
+
+    private static boolean isService(String[] services, String stringToTest) {
+
+        boolean isService = false;
+        for (String service : services) {
+            if (service.equals(stringToTest)) {
+                isService = true;
+            }
+        }
+
+        return isService;
+
     }
 
 }
