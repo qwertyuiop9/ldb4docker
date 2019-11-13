@@ -36,6 +36,8 @@ public class EditingEnvironment {
     public static List<NamedPoint> tempPoints = new LinkedList<>();
     public static List<NamedDirectedBigraph> myDirectedBigraphs = new LinkedList<>();
 
+    public static List<DirectedBigraph> sourceBigraphToCompose = new LinkedList<>();
+
 
 
 }
