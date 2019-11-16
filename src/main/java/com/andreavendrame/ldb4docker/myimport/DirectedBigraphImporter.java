@@ -21,7 +21,7 @@ public class DirectedBigraphImporter {
     public DirectedBigraphImporter() {
     }
 
-    @PostMapping(value = "/import")
+    @PostMapping(value = "/importBigraph")
     private static DirectedBigraph docker2ldb(@RequestParam(name = "filePath", defaultValue = INVALID_NAME) String filePath,
                                               @RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName) throws Exception {
 
@@ -270,8 +270,8 @@ public class DirectedBigraphImporter {
         return DirectedBigraph.compose(outs, graphs);
     }
 
-    @GetMapping(value = "testImport")
-    private DirectedBigraph developTest() {
+    @GetMapping(value = "/testImport")
+    public static DirectedBigraph importTest() {
 
         try {
             return importFromYML("C:\\Users\\andrea\\Desktop\\configurazione_bigrafo_burco.yml");

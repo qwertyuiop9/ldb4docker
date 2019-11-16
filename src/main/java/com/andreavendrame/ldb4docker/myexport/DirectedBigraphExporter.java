@@ -1,6 +1,7 @@
 package com.andreavendrame.ldb4docker.myexport;
 
 import com.andreavendrame.ldb4docker.myjlibbig.ldb.DirectedBigraph;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -16,6 +17,7 @@ public class DirectedBigraphExporter {
     public DirectedBigraphExporter() {
     }
 
+    @GetMapping(value = "/exportBigraph")
     private String exportBigraphToYml(DirectedBigraph exploredBigraph, List<DirectedBigraph> sourceBigraphs) throws Exception {
 
         String bigraph = exploredBigraph.toString();
