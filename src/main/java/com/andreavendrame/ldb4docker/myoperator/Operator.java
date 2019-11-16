@@ -16,8 +16,8 @@ import java.util.Map;
 @RequestMapping(value = "/operate")
 public class Operator {
 
-    @GetMapping(name = "/testConnection")
-    private static String isConnected() {
+    @GetMapping(name = "/connection")
+    private String isConnected() {
         return "Operate module connected";
     }
 
