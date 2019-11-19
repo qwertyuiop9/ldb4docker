@@ -1,5 +1,6 @@
 package com.andreavendrame.ldb4docker.myoperator;
 
+import com.andreavendrame.ldb4docker.editor.NamedDirectedBigraph;
 import com.andreavendrame.ldb4docker.myjlibbig.ldb.Child;
 import com.andreavendrame.ldb4docker.myjlibbig.ldb.DirectedBigraph;
 import com.andreavendrame.ldb4docker.myjlibbig.ldb.Node;
@@ -7,13 +8,13 @@ import com.andreavendrame.ldb4docker.myjlibbig.ldb.Point;
 import org.springframework.web.bind.annotation.*;
 import com.andreavendrame.ldb4docker.myimport.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+
+import static com.andreavendrame.ldb4docker.editor.EditingEnvironment.myDirectedBigraphs;
+import static com.andreavendrame.ldb4docker.editor.Editor.INVALID_NAME;
 
 @RestController
-@RequestMapping(value = "/operate")
+//@RequestMapping(value = "/operate")
 public class Operator {
 
     @GetMapping(name = "/connection")
@@ -21,22 +22,48 @@ public class Operator {
         return "Operate module connected";
     }
 
-    @PostMapping(name = "/boh")
-    private static void prepareTest() {
+    @PostMapping(name = "/testCheckLinks")
+    private static List<String> prepareTest() {
 
         DirectedBigraph testBigraph = DirectedBigraphImporter.importTest();
+        List<String> containersNotConnected = new LinkedList<>();
         try {
-            checkLinks(testBigraph);
+            containersNotConnected = checkLinks(testBigraph);
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        return containersNotConnected;
     }
 
-    private static void checkLinks(DirectedBigraph bigraph) throws Exception {
+    @GetMapping(name = "checkLinks")
+    private static List<String> checkBigraphLinks(@RequestParam(name = "bigraphName", defaultValue = INVALID_NAME) String bigraphName) {
+
+        if (bigraphName.equals(INVALID_NAME)) {
+            return null;
+        } else {
+            DirectedBigraph bigraphSelected = null;
+            for (NamedDirectedBigraph namedDirectedBigraph : myDirectedBigraphs) {
+                if (namedDirectedBigraph.getName().equals(bigraphName)) {
+                    try {
+                        return checkLinks(namedDirectedBigraph.getDirectedBigraph());
+                    } catch (Exception e) {
+                        System.out.println("Error in the method 'checkLinks'");
+                        return null;
+                    }
+                }
+            }
+            return null;
+        }
+    }
+
+    private static List<String> checkLinks(DirectedBigraph bigraph) throws Exception {
 
         Map<String, List<String>> links = new HashMap<>();
         Map<String, List<String>> nets = new HashMap<>();
         Map<String, String> names = new HashMap<>();
+
+        List<String> containersNotConnected = new LinkedList<>();
 
         for (Node n : bigraph.getNodes()) {
             // search for links and names of services
@@ -76,11 +103,6 @@ public class Operator {
             for (String link : links.get(node)) {
                 String[] ss2 = link.split("_");
                 // links is in the form l_dest_source, so splitting we can retrieve containers involved
-                for (int i=0; i<ss2.length; i++) {
-                    System.out.format("Stringa: %s ;", ss2[i]);
-                }
-                System.out.println();
-
                 String src = ss2[2];
                 List<String> src_nets = nets.get(names.get(src));
                 List<String> dst_nets = nets.get(node);
@@ -93,10 +115,15 @@ public class Operator {
                     }
                 }
                 if (!net_in_common) {
+                    String notConnected = ss2[1] + "-" + ss2[2];
+                    containersNotConnected.add(notConnected);
                     System.err.println("[WARNING] You cannot link two containers that are not in the same network.");
                 }
             }
         }
+
+        System.out.format("Container not connected: %s", containersNotConnected);
+        return containersNotConnected;
     }
 
 }

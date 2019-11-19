@@ -457,7 +457,7 @@ public class Editor {
     /**
      * This method will reset all the builder variables and the builder instance itself
      */
-    @PostMapping(value = "reset")
+    @PutMapping(value = "reset")
     private void resetCurrentBuilderToZero() {
 
         outerNames.clear();
@@ -657,7 +657,7 @@ public class Editor {
     }
 
     @DeleteMapping("innerNames")
-    private void closeInnerNameFromInterface(@RequestParam(name = "outerName", defaultValue = INVALID_NAME) String innerNameName,
+    private void closeInnerNameFromInterface(@RequestParam(name = "innerName", defaultValue = INVALID_NAME) String innerNameName,
                                              @RequestParam(name = "locality", defaultValue = INVALID_INDEX) int locality,
                                              @RequestParam(name = "interface") String interfaceType) {
 
